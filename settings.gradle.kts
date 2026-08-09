@@ -1,4 +1,5 @@
 pluginManagement {
+    includeBuild("build-logic")
     repositories {
         google {
             content {
@@ -24,4 +25,13 @@ dependencyResolutionManagement {
 
 rootProject.name = "weather-forecast"
 include(":app")
- 
+include(":core:common")
+include(":core:domain")
+include(":core:network")
+include(":core:database")
+include(":core:datastore")
+include(":core:data")
+include(":core:designsystem")
+include(":core:testing")
+include(":feature:forecast")
+include(":feature:cities")
