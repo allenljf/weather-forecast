@@ -1,5 +1,6 @@
 package com.allenljf.weatherforecast.feature.forecast
 
+import com.allenljf.weatherforecast.core.common.result.AppError
 import com.allenljf.weatherforecast.core.domain.model.City
 import com.allenljf.weatherforecast.core.domain.model.CurrentWeather
 import com.allenljf.weatherforecast.core.domain.model.DailyForecast
@@ -20,5 +21,5 @@ sealed interface ForecastUiState {
         val daily: List<DailyForecast>,
     ) : ForecastUiState
 
-    data class Error(val city: City) : ForecastUiState
+    data class Error(val city: City, val error: AppError) : ForecastUiState
 }

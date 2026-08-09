@@ -48,7 +48,7 @@ class ForecastViewModel @Inject constructor(
         emit(
             when (val result = getForecast(city)) {
                 is AppResult.Success -> result.data.toSuccessState(city)
-                is AppResult.Error -> ForecastUiState.Error(city)
+                is AppResult.Error -> ForecastUiState.Error(city, result.error)
             },
         )
     }

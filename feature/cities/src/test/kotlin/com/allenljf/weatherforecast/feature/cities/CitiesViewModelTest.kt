@@ -31,6 +31,7 @@ class CitiesViewModelTest {
     private val cityRepository = FakeCityRepository()
 
     private fun createViewModel() = CitiesViewModel(
+        savedStateHandle = androidx.lifecycle.SavedStateHandle(),
         observeSavedCities = ObserveSavedCitiesUseCase(cityRepository),
         observeSelectedCity = ObserveSelectedCityUseCase(cityRepository),
         searchCities = SearchCitiesUseCase(cityRepository),
@@ -145,6 +146,62 @@ class CitiesViewModelTest {
 
             val state = awaitItemMatching { it.searchQuery.isEmpty() }
             assertTrue(state.searchResults.isEmpty())
+        }
+    }
+
+    @Test
+    fun `stale results from a cancelled search are never shown`() = runTest {
+        // First search is slow; a second query arrives while it is in flight.
+        cityRepository.searchDelayMillis = 500
+        cityRepository.searchResultsByQuery["Lon"] = AppResult.Success(listOf(TestData.london))
+        cityRepository.searchResultsByQuery["Tok"] = AppResult.Success(listOf(TestData.tokyo))
+        val viewModel = createViewModel()
+
+        viewModel.uiState.test {
+            viewModel.onSearchQueryChange("Lon")
+            advanceTimeBy(400) // debounce fired at 300ms; "Lon" search is now in flight
+
+            viewModel.onSearchQueryChange("Tok")
+            advanceTimeBy(2_000) // "Lon" must be cancelled; "Tok" completes
+
+            var state = awaitItem()
+            while (state.searchResults != listOf(TestData.tokyo)) {
+                assertTrue(
+                    "stale London results leaked into state: $state",
+                    !state.searchResults.contains(TestData.london),
+                )
+                state = awaitItem()
+            }
+            assertEquals("Tok", state.searchQuery)
+        }
+    }
+
+    @Test
+    fun `adding a city emits CitySelected only after persistence completed`() = runTest {
+        val viewModel = createViewModel()
+
+        viewModel.events.test {
+            viewModel.onAddCity(TestData.london)
+            runCurrent()
+
+            assertEquals(CitiesEvent.CitySelected, awaitItem())
+            // By the time the event is observable, the write must be done.
+            assertTrue(cityRepository.savedCities.value.contains(TestData.london))
+            assertEquals(TestData.london.id, cityRepository.selectedCityId.value)
+        }
+    }
+
+    @Test
+    fun `selecting a city emits CitySelected after persistence completed`() = runTest {
+        cityRepository.savedCities.value = listOf(TestData.taipei, TestData.tokyo)
+        val viewModel = createViewModel()
+
+        viewModel.events.test {
+            viewModel.onSelectCity(TestData.tokyo.id)
+            runCurrent()
+
+            assertEquals(CitiesEvent.CitySelected, awaitItem())
+            assertEquals(TestData.tokyo.id, cityRepository.selectedCityId.value)
         }
     }
 

@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="retry">Retry</string>
+
+    <string name="condition_clear">Clear sky</string>
+    <string name="condition_mainly_clear">Mainly clear</string>
+    <string name="condition_partly_cloudy">Partly cloudy</string>
+    <string name="condition_overcast">Overcast</string>
+    <string name="condition_fog">Fog</string>
+    <string name="condition_drizzle">Drizzle</string>
+    <string name="condition_freezing_drizzle">Freezing drizzle</string>
+    <string name="condition_rain">Rain</string>
+    <string name="condition_freezing_rain">Freezing rain</string>
+    <string name="condition_snow">Snow</string>
+    <string name="condition_snow_grains">Snow grains</string>
+    <string name="condition_rain_showers">Rain showers</string>
+    <string name="condition_snow_showers">Snow showers</string>
+    <string name="condition_thunderstorm">Thunderstorm</string>
+    <string name="condition_thunderstorm_with_hail">Thunderstorm with hail</string>
+    <string name="condition_unknown">Unknown</string>
+</resources>

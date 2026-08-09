@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="cities_title">Cities</string>
+    <string name="back">Back</string>
+    <string name="search_city_placeholder">Search city to add</string>
+    <string name="clear_search">Clear search</string>
+    <string name="already_added">Already added</string>
+    <string name="add_city">Add %1$s</string>
+    <string name="selected">Selected</string>
+    <string name="select_city">Select %1$s</string>
+    <string name="delete_city">Delete %1$s</string>
+    <string name="search_failed">Search failed. Check your connection and try again.</string>
+    <string name="no_matching_cities">No matching cities. Keep typing to search.</string>
+    <string name="no_saved_cities">No saved cities. Search above to add one.</string>
+</resources>

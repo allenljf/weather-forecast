@@ -1,6 +1,7 @@
 package com.allenljf.weatherforecast.feature.forecast
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -28,17 +29,20 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.allenljf.weatherforecast.core.designsystem.component.EmptyState
 import com.allenljf.weatherforecast.core.designsystem.component.ErrorState
 import com.allenljf.weatherforecast.core.designsystem.component.LoadingState
 import com.allenljf.weatherforecast.core.designsystem.component.WeatherConditionIcon
-import com.allenljf.weatherforecast.core.designsystem.component.label
+import com.allenljf.weatherforecast.core.designsystem.component.localizedLabel
+import com.allenljf.weatherforecast.core.common.result.AppError
 import com.allenljf.weatherforecast.core.domain.model.CurrentWeather
 import com.allenljf.weatherforecast.core.domain.model.DailyForecast
 import com.allenljf.weatherforecast.core.domain.model.HourlyForecast
+import androidx.compose.ui.text.intl.Locale as ComposeLocale
 import java.time.format.DateTimeFormatter
 import java.time.format.TextStyle
 import java.util.Locale
@@ -72,7 +76,7 @@ fun ForecastScreen(
                     val title = when (uiState) {
                         is ForecastUiState.Success -> uiState.city.name
                         is ForecastUiState.Error -> uiState.city.name
-                        else -> "Weather Forecast"
+                        else -> stringResource(R.string.forecast_default_title)
                     }
                     Text(text = title, modifier = Modifier.testTag("forecast_title"))
                 },
@@ -80,7 +84,7 @@ fun ForecastScreen(
                     IconButton(onClick = onCitiesClick, modifier = Modifier.testTag("cities_button")) {
                         Icon(
                             imageVector = Icons.Filled.LocationCity,
-                            contentDescription = "Manage cities",
+                            contentDescription = stringResource(R.string.manage_cities),
                         )
                     }
                 },
@@ -95,13 +99,16 @@ fun ForecastScreen(
             ForecastUiState.Loading -> LoadingState(modifier = contentModifier)
 
             ForecastUiState.NoCitySelected -> EmptyState(
-                message = "No city selected. Add a city to see its forecast.",
+                message = stringResource(R.string.no_city_selected),
                 modifier = contentModifier,
             )
 
             is ForecastUiState.Error -> ErrorState(
-                message = "Couldn't load the forecast for ${uiState.city.name}. " +
-                    "Check your connection and try again.",
+                message = when (uiState.error) {
+                    AppError.Network -> stringResource(R.string.forecast_error_network, uiState.city.name)
+                    is AppError.Server -> stringResource(R.string.forecast_error_server)
+                    is AppError.Unknown -> stringResource(R.string.forecast_error_unknown, uiState.city.name)
+                },
                 onRetry = onRetry,
                 modifier = contentModifier,
             )
@@ -121,14 +128,14 @@ private fun ForecastContent(
 ) {
     LazyColumn(
         modifier = modifier.testTag("forecast_content"),
-        contentPadding = androidx.compose.foundation.layout.PaddingValues(16.dp),
+        contentPadding = PaddingValues(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         item { CurrentWeatherCard(current = uiState.current) }
 
         item {
             Text(
-                text = "Next hours",
+                text = stringResource(R.string.next_hours),
                 style = MaterialTheme.typography.titleMedium,
             )
         }
@@ -136,7 +143,7 @@ private fun ForecastContent(
 
         item {
             Text(
-                text = "7-day forecast",
+                text = stringResource(R.string.seven_day_forecast),
                 style = MaterialTheme.typography.titleMedium,
             )
         }
@@ -170,20 +177,20 @@ private fun CurrentWeatherCard(current: CurrentWeather, modifier: Modifier = Mod
                 modifier = Modifier.testTag("current_temperature"),
             )
             Text(
-                text = current.condition.label,
+                text = current.condition.localizedLabel(),
                 style = MaterialTheme.typography.titleMedium,
             )
             Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                 Text(
-                    text = "Feels like ${current.feelsLike.roundToInt()}°",
+                    text = stringResource(R.string.feels_like, current.feelsLike.roundToInt()),
                     style = MaterialTheme.typography.bodyMedium,
                 )
                 Text(
-                    text = "Humidity ${current.humidity}%",
+                    text = stringResource(R.string.humidity, current.humidity),
                     style = MaterialTheme.typography.bodyMedium,
                 )
                 Text(
-                    text = "Wind ${current.windSpeed.roundToInt()} km/h",
+                    text = stringResource(R.string.wind, current.windSpeed.roundToInt()),
                     style = MaterialTheme.typography.bodyMedium,
                 )
             }
@@ -229,7 +236,10 @@ private fun DailyRow(day: DailyForecast, modifier: Modifier = Modifier) {
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
-                text = day.date.dayOfWeek.getDisplayName(TextStyle.SHORT, Locale.ENGLISH),
+                text = day.date.dayOfWeek.getDisplayName(
+                    TextStyle.SHORT,
+                    Locale.forLanguageTag(ComposeLocale.current.toLanguageTag()),
+                ),
                 style = MaterialTheme.typography.bodyLarge,
                 modifier = Modifier.width(56.dp),
             )
@@ -239,12 +249,12 @@ private fun DailyRow(day: DailyForecast, modifier: Modifier = Modifier) {
             )
             Spacer(modifier = Modifier.width(16.dp))
             Text(
-                text = day.condition.label,
+                text = day.condition.localizedLabel(),
                 style = MaterialTheme.typography.bodyMedium,
                 modifier = Modifier.weight(1f),
             )
             Text(
-                text = "${day.minTemperature.roundToInt()}° / ${day.maxTemperature.roundToInt()}°",
+                text = stringResource(R.string.min_max_temperature, day.minTemperature.roundToInt(), day.maxTemperature.roundToInt()),
                 style = MaterialTheme.typography.bodyLarge,
             )
         }

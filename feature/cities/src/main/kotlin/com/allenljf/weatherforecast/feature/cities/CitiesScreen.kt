@@ -26,12 +26,14 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.allenljf.weatherforecast.core.designsystem.component.EmptyState
 import com.allenljf.weatherforecast.core.domain.model.City
@@ -44,20 +46,24 @@ fun CitiesRoute(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
+    // Navigation happens only after the ViewModel reports the write finished;
+    // popping earlier would cancel the in-flight persistence.
+    LaunchedEffect(viewModel) {
+        viewModel.events.collect { event ->
+            when (event) {
+                CitiesEvent.CitySelected -> onCitySelected()
+            }
+        }
+    }
+
     CitiesScreen(
         uiState = uiState,
         onBackClick = onBackClick,
         onSearchQueryChange = viewModel::onSearchQueryChange,
         onClearSearch = viewModel::onClearSearch,
-        onAddCity = { city ->
-            viewModel.onAddCity(city)
-            onCitySelected()
-        },
+        onAddCity = viewModel::onAddCity,
         onRemoveCity = viewModel::onRemoveCity,
-        onSelectCity = { cityId ->
-            viewModel.onSelectCity(cityId)
-            onCitySelected()
-        },
+        onSelectCity = viewModel::onSelectCity,
     )
 }
 
@@ -75,12 +81,12 @@ fun CitiesScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(text = "Cities") },
+                title = { Text(text = stringResource(R.string.cities_title)) },
                 navigationIcon = {
                     IconButton(onClick = onBackClick, modifier = Modifier.testTag("back_button")) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Back",
+                            contentDescription = stringResource(R.string.back),
                         )
                     }
                 },
@@ -99,7 +105,7 @@ fun CitiesScreen(
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp, vertical = 8.dp)
                     .testTag("search_input"),
-                placeholder = { Text(text = "Search city to add") },
+                placeholder = { Text(text = stringResource(R.string.search_city_placeholder)) },
                 leadingIcon = {
                     Icon(imageVector = Icons.Filled.Search, contentDescription = null)
                 },
@@ -109,7 +115,7 @@ fun CitiesScreen(
                             onClick = onClearSearch,
                             modifier = Modifier.testTag("clear_search_button"),
                         ) {
-                            Icon(imageVector = Icons.Filled.Clear, contentDescription = "Clear search")
+                            Icon(imageVector = Icons.Filled.Clear, contentDescription = stringResource(R.string.clear_search))
                         }
                     }
                 },
@@ -151,11 +157,11 @@ private fun SearchResults(
         }
 
         uiState.searchFailed -> {
-            EmptyState(message = "Search failed. Check your connection and try again.")
+            EmptyState(message = stringResource(R.string.search_failed))
         }
 
         uiState.searchResults.isEmpty() -> {
-            EmptyState(message = "No matching cities. Keep typing to search.")
+            EmptyState(message = stringResource(R.string.no_matching_cities))
         }
 
         else -> {
@@ -170,7 +176,7 @@ private fun SearchResults(
                             if (alreadySaved) {
                                 Icon(
                                     imageVector = Icons.Filled.Check,
-                                    contentDescription = "Already added",
+                                    contentDescription = stringResource(R.string.already_added),
                                 )
                             } else {
                                 IconButton(
@@ -179,7 +185,7 @@ private fun SearchResults(
                                 ) {
                                     Icon(
                                         imageVector = Icons.Filled.Add,
-                                        contentDescription = "Add ${city.name}",
+                                        contentDescription = stringResource(R.string.add_city, city.name),
                                     )
                                 }
                             }
@@ -198,7 +204,7 @@ private fun SavedCities(
     onSelectCity: (Long) -> Unit,
 ) {
     if (uiState.savedCities.isEmpty()) {
-        EmptyState(message = "No saved cities. Search above to add one.")
+        EmptyState(message = stringResource(R.string.no_saved_cities))
         return
     }
 
@@ -227,7 +233,7 @@ private fun SavedCities(
                     ) {
                         Icon(
                             imageVector = Icons.Filled.Check,
-                            contentDescription = if (selected) "Selected" else "Select ${city.name}",
+                            contentDescription = if (selected) stringResource(R.string.selected) else stringResource(R.string.select_city, city.name),
                             tint = if (selected) {
                                 MaterialTheme.colorScheme.primary
                             } else {
@@ -243,7 +249,7 @@ private fun SavedCities(
                     ) {
                         Icon(
                             imageVector = Icons.Filled.Delete,
-                            contentDescription = "Delete ${city.name}",
+                            contentDescription = stringResource(R.string.delete_city, city.name),
                         )
                     }
                 },

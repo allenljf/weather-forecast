@@ -1,12 +1,13 @@
 package com.allenljf.weatherforecast.core.designsystem.component
 
+import androidx.annotation.StringRes
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AcUnit
 import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.Cloud
 import androidx.compose.material.icons.filled.Dehaze
 import androidx.compose.material.icons.filled.Grain
-import androidx.compose.material.icons.filled.HelpOutline
+import androidx.compose.material.icons.automirrored.filled.HelpOutline
 import androidx.compose.material.icons.filled.WbCloudy
 import androidx.compose.material.icons.filled.WbSunny
 import androidx.compose.material3.Icon
@@ -14,6 +15,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.stringResource
+import com.allenljf.weatherforecast.core.designsystem.R
 import com.allenljf.weatherforecast.core.domain.model.WeatherCondition
 
 val WeatherCondition.icon: ImageVector
@@ -38,28 +41,32 @@ val WeatherCondition.icon: ImageVector
         WeatherCondition.THUNDERSTORM_WITH_HAIL,
         -> Icons.Filled.Bolt
 
-        WeatherCondition.UNKNOWN -> Icons.Filled.HelpOutline
+        WeatherCondition.UNKNOWN -> Icons.AutoMirrored.Filled.HelpOutline
     }
 
-val WeatherCondition.label: String
+@get:StringRes
+val WeatherCondition.labelRes: Int
     get() = when (this) {
-        WeatherCondition.CLEAR -> "Clear sky"
-        WeatherCondition.MAINLY_CLEAR -> "Mainly clear"
-        WeatherCondition.PARTLY_CLOUDY -> "Partly cloudy"
-        WeatherCondition.OVERCAST -> "Overcast"
-        WeatherCondition.FOG -> "Fog"
-        WeatherCondition.DRIZZLE -> "Drizzle"
-        WeatherCondition.FREEZING_DRIZZLE -> "Freezing drizzle"
-        WeatherCondition.RAIN -> "Rain"
-        WeatherCondition.FREEZING_RAIN -> "Freezing rain"
-        WeatherCondition.SNOW -> "Snow"
-        WeatherCondition.SNOW_GRAINS -> "Snow grains"
-        WeatherCondition.RAIN_SHOWERS -> "Rain showers"
-        WeatherCondition.SNOW_SHOWERS -> "Snow showers"
-        WeatherCondition.THUNDERSTORM -> "Thunderstorm"
-        WeatherCondition.THUNDERSTORM_WITH_HAIL -> "Thunderstorm with hail"
-        WeatherCondition.UNKNOWN -> "Unknown"
+        WeatherCondition.CLEAR -> R.string.condition_clear
+        WeatherCondition.MAINLY_CLEAR -> R.string.condition_mainly_clear
+        WeatherCondition.PARTLY_CLOUDY -> R.string.condition_partly_cloudy
+        WeatherCondition.OVERCAST -> R.string.condition_overcast
+        WeatherCondition.FOG -> R.string.condition_fog
+        WeatherCondition.DRIZZLE -> R.string.condition_drizzle
+        WeatherCondition.FREEZING_DRIZZLE -> R.string.condition_freezing_drizzle
+        WeatherCondition.RAIN -> R.string.condition_rain
+        WeatherCondition.FREEZING_RAIN -> R.string.condition_freezing_rain
+        WeatherCondition.SNOW -> R.string.condition_snow
+        WeatherCondition.SNOW_GRAINS -> R.string.condition_snow_grains
+        WeatherCondition.RAIN_SHOWERS -> R.string.condition_rain_showers
+        WeatherCondition.SNOW_SHOWERS -> R.string.condition_snow_showers
+        WeatherCondition.THUNDERSTORM -> R.string.condition_thunderstorm
+        WeatherCondition.THUNDERSTORM_WITH_HAIL -> R.string.condition_thunderstorm_with_hail
+        WeatherCondition.UNKNOWN -> R.string.condition_unknown
     }
+
+@Composable
+fun WeatherCondition.localizedLabel(): String = stringResource(labelRes)
 
 @Composable
 fun WeatherConditionIcon(
@@ -68,7 +75,7 @@ fun WeatherConditionIcon(
 ) {
     Icon(
         imageVector = condition.icon,
-        contentDescription = condition.label,
+        contentDescription = condition.localizedLabel(),
         modifier = modifier,
         tint = MaterialTheme.colorScheme.primary,
     )

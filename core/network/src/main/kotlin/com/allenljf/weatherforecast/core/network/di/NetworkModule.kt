@@ -1,10 +1,13 @@
 package com.allenljf.weatherforecast.core.network.di
 
+import android.content.Context
+import android.content.pm.ApplicationInfo
 import com.allenljf.weatherforecast.core.network.api.ForecastApi
 import com.allenljf.weatherforecast.core.network.api.GeocodingApi
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
+import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import javax.inject.Qualifier
 import javax.inject.Singleton
@@ -58,12 +61,20 @@ object NetworkModule {
 
     @Provides
     @Singleton
-    fun provideOkHttpClient(): OkHttpClient =
-        OkHttpClient.Builder()
-            .addInterceptor(
-                HttpLoggingInterceptor().apply { level = HttpLoggingInterceptor.Level.BASIC },
-            )
+    fun provideOkHttpClient(@ApplicationContext context: Context): OkHttpClient {
+        val isDebuggable = context.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE != 0
+        return OkHttpClient.Builder()
+            .apply {
+                if (isDebuggable) {
+                    addInterceptor(
+                        HttpLoggingInterceptor().apply {
+                            level = HttpLoggingInterceptor.Level.BASIC
+                        },
+                    )
+                }
+            }
             .build()
+    }
 
     @Provides
     @Singleton
