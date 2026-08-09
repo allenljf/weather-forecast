@@ -19,7 +19,7 @@ import javax.inject.Singleton
  * Ids are GeoNames ids, matching the `id` field returned by the Open-Meteo geocoding API,
  * so searching for and re-adding one of these cities replaces instead of duplicating it.
  */
-internal object DefaultCitiesSeedCallback : RoomDatabase.Callback() {
+object DefaultCitiesSeedCallback : RoomDatabase.Callback() {
 
     override fun onCreate(db: SupportSQLiteDatabase) {
         super.onCreate(db)

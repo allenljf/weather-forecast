@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Debug builds allow cleartext to localhost only, so instrumentation
+         tests can talk to an on-device MockWebServer. -->
+    <application android:networkSecurityConfig="@xml/debug_network_security_config" />
+</manifest>

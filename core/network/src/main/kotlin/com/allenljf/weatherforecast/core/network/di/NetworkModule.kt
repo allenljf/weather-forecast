@@ -23,12 +23,34 @@ annotation class ForecastRetrofit
 @Retention(AnnotationRetention.BINARY)
 annotation class GeocodingRetrofit
 
+@Qualifier
+@Retention(AnnotationRetention.BINARY)
+annotation class ForecastBaseUrl
+
+@Qualifier
+@Retention(AnnotationRetention.BINARY)
+annotation class GeocodingBaseUrl
+
+/**
+ * Base URLs live in their own module so instrumentation tests can replace
+ * them (via @TestInstallIn) with a local MockWebServer address.
+ */
+@Module
+@InstallIn(SingletonComponent::class)
+object BaseUrlModule {
+
+    @Provides
+    @ForecastBaseUrl
+    fun provideForecastBaseUrl(): String = "https://api.open-meteo.com/"
+
+    @Provides
+    @GeocodingBaseUrl
+    fun provideGeocodingBaseUrl(): String = "https://geocoding-api.open-meteo.com/"
+}
+
 @Module
 @InstallIn(SingletonComponent::class)
 object NetworkModule {
-
-    internal const val FORECAST_BASE_URL = "https://api.open-meteo.com/"
-    internal const val GEOCODING_BASE_URL = "https://geocoding-api.open-meteo.com/"
 
     @Provides
     @Singleton
@@ -46,9 +68,13 @@ object NetworkModule {
     @Provides
     @Singleton
     @ForecastRetrofit
-    fun provideForecastRetrofit(json: Json, okHttpClient: OkHttpClient): Retrofit =
+    fun provideForecastRetrofit(
+        json: Json,
+        okHttpClient: OkHttpClient,
+        @ForecastBaseUrl baseUrl: String,
+    ): Retrofit =
         Retrofit.Builder()
-            .baseUrl(FORECAST_BASE_URL)
+            .baseUrl(baseUrl)
             .client(okHttpClient)
             .addConverterFactory(json.asConverterFactory("application/json".toMediaType()))
             .build()
@@ -56,9 +82,13 @@ object NetworkModule {
     @Provides
     @Singleton
     @GeocodingRetrofit
-    fun provideGeocodingRetrofit(json: Json, okHttpClient: OkHttpClient): Retrofit =
+    fun provideGeocodingRetrofit(
+        json: Json,
+        okHttpClient: OkHttpClient,
+        @GeocodingBaseUrl baseUrl: String,
+    ): Retrofit =
         Retrofit.Builder()
-            .baseUrl(GEOCODING_BASE_URL)
+            .baseUrl(baseUrl)
             .client(okHttpClient)
             .addConverterFactory(json.asConverterFactory("application/json".toMediaType()))
             .build()

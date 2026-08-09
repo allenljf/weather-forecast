@@ -19,7 +19,7 @@ android {
         versionCode = 1
         versionName = "1.0"
 
-        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        testInstrumentationRunner = "com.allenljf.weatherforecast.core.testing.HiltTestRunner"
     }
 
     buildTypes {
@@ -40,6 +40,14 @@ android {
     }
 }
 
+// Kaspresso 1.6.x publishes strictly-locked transitive versions that clash
+// with the newer Espresso/androidx stack; force the newer versions for tests.
+configurations.matching { it.name.contains("AndroidTest") }.configureEach {
+    resolutionStrategy {
+        force("androidx.concurrent:concurrent-futures:1.2.0")
+    }
+}
+
 dependencies {
     implementation(project(":core:data"))
     implementation(project(":core:designsystem"))
@@ -57,10 +65,21 @@ dependencies {
     implementation(libs.androidx.navigation.compose)
 
     testImplementation(libs.junit)
+    androidTestImplementation(project(":core:testing"))
+    androidTestImplementation(project(":core:network"))
+    androidTestImplementation(project(":core:database"))
+    androidTestImplementation(project(":core:datastore"))
+    androidTestImplementation(libs.room.runtime)
+    androidTestImplementation(libs.androidx.datastore.preferences)
     androidTestImplementation(platform(libs.androidx.compose.bom))
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
     androidTestImplementation(libs.androidx.espresso.core)
     androidTestImplementation(libs.androidx.junit)
+    androidTestImplementation(libs.androidx.test.rules)
+    androidTestImplementation(libs.hilt.android.testing)
+    androidTestImplementation(libs.kaspresso)
+    androidTestImplementation(libs.okhttp.mockwebserver)
+    kspAndroidTest(libs.hilt.compiler)
     debugImplementation(libs.androidx.compose.ui.test.manifest)
     debugImplementation(libs.androidx.compose.ui.tooling)
 }
