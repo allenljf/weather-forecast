@@ -20,6 +20,7 @@ dependencies {
     "implementation"(libs.findLibrary("androidx-compose-ui-graphics").get())
     "implementation"(libs.findLibrary("androidx-compose-ui-tooling-preview").get())
     "implementation"(libs.findLibrary("androidx-compose-material3").get())
+    "implementation"(libs.findLibrary("androidx-compose-material-icons-extended").get())
     "debugImplementation"(libs.findLibrary("androidx-compose-ui-tooling").get())
     "debugImplementation"(libs.findLibrary("androidx-compose-ui-test-manifest").get())
     "androidTestImplementation"(platform(bom))
