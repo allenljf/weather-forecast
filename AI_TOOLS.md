@@ -66,8 +66,89 @@ A concrete walkthrough of the process, including the decisions I made and where 
    APKs by design), and renaming the app / replacing the launcher icon with a weather-themed
    adaptive icon.
 
+## Round two: driving quality from my own usage
+
+The first delivery met the assignment. Using it myself surfaced problems the requirements never
+mentioned, and this second round is where most of my product thinking went.
+
+### What I found by using the app, and how I reasoned about each fix
+
+**Losing connectivity dropped me onto a dead-end error screen.** My reasoning: the failure is
+usually transient, and the app already knows when it ends — the platform will tell us. So rather
+than making the user detect recovery and press a button, I asked for a `NetworkMonitor` that
+observes connectivity and **retries automatically the moment it returns**. Manual retry stays,
+because connectivity APIs report "connected" for captive portals and dead uplinks too.
+
+**The error UI was wrong in a subtler way**: it replaced the whole screen, discarding data that
+was still perfectly readable. I specified the opposite rule — *a failure must never remove data
+already on screen* — which became a persistent top banner over the existing content. I also made
+a deliberate call that surprised the AI enough to be worth stating: **the banner has no dismiss
+button.** Dismissing it would remove the only visible route to a retry and leave the user with
+stale data and no explanation. I wrote that reasoning into the spec so it wouldn't be "fixed"
+later.
+
+**No way to force a refresh.** Pull-to-refresh, with the same rule applied: a failed refresh
+keeps the old data and raises the banner instead of clearing the screen.
+
+**The way into city search was a building icon nobody would read as "search".** Changed to a
+magnifier in a filled, rounded container — the one action on that screen that deserves visual
+weight.
+
+Then I ran a **market survey** of what mainstream weather apps offer, filtered it against what
+Open-Meteo provides for free, and picked five additions: **rain probability, sunrise/sunset, air
+quality, offline cache, and a °C/°F switch**. I skipped radar layers and push alerts — both need
+paid APIs or a backend, which would have broken the project's "clone and run" property.
+
+Two design rules I set for that round, because they are the sort of thing that goes wrong when
+features are added without a stated principle:
+- **Supplementary data must fail quietly.** A failed air-quality request hides its card. It never
+  shows an error and never raises the banner — only the forecast itself is allowed to do that.
+- **Offline-first, not offline-only.** Cached data appears instantly but is labelled "Cached —
+  last updated at HH:mm", so the user always knows whether they are looking at live data.
+
+For the cache I also chose the *un*-shortcut: a real Room `Migration(1, 2)` with a migration test,
+instead of `fallbackToDestructiveMigration` — which would have silently wiped the user's saved
+cities on upgrade. That is exactly the kind of decision an AI will happily take the easy path on
+unless someone states the constraint.
+
+## How I direct and verify the AI
+
+**Specs, not requests.** Task briefs to subagents carry: module boundaries, package naming, the
+signatures of existing code they must integrate with, the exact acceptance command
+(`./gradlew :module:test` must be green), explicit non-goals ("do not touch other modules, do not
+commit"), and a required report format that must include **any decision that deviated from the
+brief, and why**. That last field is the important one — it forces the AI's autonomous choices to
+surface where I can review them instead of hiding in a diff.
+
+**TDD as a machine-checkable contract.** "Write the test, run it, show me it fails, then
+implement" is in every brief. It is not ceremony: a test that was never seen failing proves
+nothing. This paid off concretely in this round — the new offline-cache tests failed for a reason
+neither I nor the implementing agent predicted, and the cause turned out to be a **genuine
+concurrency bug**: the ViewModel read its own previously-emitted value back out of a `StateFlow`,
+which `flatMapLatest`'s buffering can serve stale. The fix was to track that value in a local
+variable. Without a test-first discipline that bug ships and reappears as an unreproducible
+"sometimes the offline screen is wrong" report.
+
+**Parallel agents on disjoint file sets.** Independent modules (network, database, data) are
+implemented concurrently by separate agents with zero file overlap; I integrate and verify. One
+of them proactively flagged a cross-module consequence I had not asked about — that adding a new
+API would break the E2E test module's dependency injection — which I then fixed before it could
+fail.
+
+**Four gates before I accept anything:**
+1. *Machine* — build plus the full test suite green; TDD guarantees the tests have teeth.
+2. *Independent review* — a fresh agent with no memory of the implementation audits the diff.
+   It found two real concurrency defects the implementing session had missed; the absence of
+   author bias is the whole point.
+3. *Human spot-check* — I read the coroutine, lifecycle and error-handling code line by line.
+   That is where AI output looks most convincing and is most often subtly wrong.
+4. *Behavioural* — I run it. Every feature in this round was verified on a device, including
+   pulling the emulator offline to confirm the cache renders on a cold start and that the banner
+   clears **by itself** when connectivity returns.
+
 The division of labor throughout: **the AI wrote code and ran verification; I set direction,
-made every architectural and scope decision, gated each phase, and reviewed the output.**
+made every architectural and scope decision, defined the behavioural rules, gated each phase, and
+reviewed the output.**
 
 ## What AI concretely helped with
 
@@ -76,7 +157,9 @@ made every architectural and scope decision, gated each phase, and reviewed the 
 - Writing tests first and keeping the discipline honest (RED verified before GREEN)
 - Open-Meteo DTO modeling and WMO weather-code mapping
 - Compose screens, state modeling, and navigation wiring
-- Documentation (this file, README)
+- Documentation (this file, README, SPEC)
+- Market research on competing weather apps, filtered against what the free API can actually
+  deliver, to turn "what could we add" into a costed shortlist
 
 All commits were made incrementally with readable history so the development process can be
 audited commit by commit.

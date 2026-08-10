@@ -8,9 +8,14 @@ An Android weather forecast app built for the ON Android Engineer home assignmen
 
 ## Features
 
-- **Today's forecast** — current temperature, condition, feels-like, humidity, wind, and the upcoming 24 hours
-- **Weekly forecast** — 7-day outlook with condition and min/max temperatures
+- **Today's forecast** — current temperature, condition, feels-like, humidity, wind, sunrise/sunset, and the upcoming 24 hours with rain probability
+- **Weekly forecast** — 7-day outlook with condition, rain probability and min/max temperatures
+- **Air quality** — European AQI band with colour coding and PM2.5
 - **City list** — 5 preloaded cities, search any city worldwide (Open-Meteo geocoding), add/remove/select; the selected city persists across launches
+- **Works offline** — the last forecast per city is cached and shown instantly, clearly labelled as cached
+- **Recovers on its own** — connectivity is monitored; regaining it retries a failed load with no user action
+- **Pull to refresh**, plus a persistent error banner with an inline Retry
+- **English / 繁體中文** UI switch and **°C / °F** toggle, both persisted
 
 ## Tech Stack & Why
 
@@ -24,6 +29,9 @@ Each choice was made against at least one concrete alternative:
 | Local DB | Room | SQLDelight, raw SQLite | Compile-time verified SQL, `Flow` queries, in-memory builder for tests, and a `Callback` hook that made seeding default cities clean. SQLDelight is excellent but its main advantage (KMP) is unused here. |
 | Preferences | DataStore | SharedPreferences | Async `Flow`-based reads, transactional writes, no main-thread I/O. SharedPreferences has sync reads that can ANR and racy `apply()` semantics. |
 | Concurrency | Coroutines + Flow | RxJava | Structured concurrency (cancellation propagates with lifecycles — see the search-cancellation handling in `CitiesViewModel`), and first-party support in Room/Retrofit/Compose. RxJava solves the same problems with a much larger API surface. |
+| Connectivity | `ConnectivityManager.NetworkCallback` wrapped in `callbackFlow` | Polling, or checking only at request time | Push-based: the app reacts the moment connectivity returns instead of waiting for the user to retry. `callbackFlow` + `awaitClose` unregisters the callback with the subscription, so there is no leak. |
+| Per-app language | Platform `LocaleManager` (API 33+) with the AppCompat backport below | Manually wrapping `Context` with a custom `Configuration` | The system persists the choice, recreates activities, and exposes it in Android's per-app language settings. Context wrapping has to be repeated in every entry point and misses resources loaded outside activities. |
+| Cache payload | `kotlinx.serialization` mirror classes in `core:data` | Room `@TypeConverter`s, or annotating the domain models | Keeps `@Serializable` out of `core:domain` (which must stay pure Kotlin), and lets the payload format evolve without a schema migration. |
 | Presentation | MVVM + UDF (plain `StateFlow`) | MVI frameworks (Orbit, Circuit) | The unidirectional pattern without framework lock-in: UI observes one `StateFlow<UiState>`, events go back as function calls. At this scope an MVI framework adds concepts without adding safety. |
 | Build | Convention plugins (`build-logic`) + version catalog | `buildSrc`, copy-pasted module scripts | One source of truth for SDK levels/Java target/test deps across 11 modules. Unlike `buildSrc`, an included build doesn't invalidate the entire build cache on every change. |
 | Unit test doubles | MockK + hand-written fakes | Mockito | MockK is Kotlin-native: final classes work out of the box and `coEvery`/`coVerify` handle suspend functions. Stateful fakes (in `core:testing`) are used where interaction mocks would just mirror the implementation. |
@@ -133,6 +141,10 @@ No configuration or API key needed.
 ./gradlew build                       # full build incl. lint + unit tests
 ```
 
+Room ships **schema version 2** with an explicit `Migration(1, 2)` (adding the forecast cache
+table) and a migration test that proves saved cities survive the upgrade — destructive fallback
+is deliberately not used.
+
 ### Seeing per-test results in the console
 
 Every unit test prints its name and outcome (`ClassName > test name PASSED/FAILED`) while
@@ -180,6 +192,10 @@ They stay on disk until the next test run overwrites them (or `./gradlew clean`)
   shown; deleting the selected city moves selection to the next one — both covered by unit tests.
 - **Convention plugins**: single source of truth for compileSdk/minSdk/Java target/test deps
   across 11 modules.
+- **Offline-first, not offline-only**: cached data renders immediately and is explicitly marked
+  stale, so the user always knows whether they are looking at live data.
+- **Supplementary data fails quietly**: a failed air-quality request hides its card; only the
+  forecast itself is allowed to surface an error.
 
 ## AI Tools
 

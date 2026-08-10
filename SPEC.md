@@ -8,6 +8,18 @@ adding a feature or changing existing behaviour.
 - **Status**: reflects the implementation as of the current `feature/weather-forecast` branch
 - **Related docs**: [README](README.md) (setup, architecture overview), [AI_TOOLS](AI_TOOLS.md) (how it was built)
 
+## 0.1 Market context
+
+Sizing the feature set against the wider market (2026 figures): the global weather app market is
+worth roughly **USD 1.2 billion**, growing at about **8.3% CAGR**; **72–78%** of connected
+consumers check the weather at least daily, and daily active usage sits at **41–63% of installs**
+— unusually high engagement, which is why responsiveness and offline behaviour matter more here
+than in most app categories. Radar, minute-level precipitation and severe-weather tooling are
+reported to lift retention by **22–39%**, and push notifications see **18–36%** engagement during
+extreme weather. Those last two are the strongest candidates for future work (6.4), but both need
+paid data or a backend, so this app instead invests in the fundamentals: instant offline reads,
+automatic recovery, and precipitation probability on every row.
+
 ---
 
 # Part 1 — Product Overview
@@ -40,6 +52,11 @@ five well-known cities are preloaded, and any city worldwide can be searched and
 | F9 | Add / remove city | Cities | Adding selects the city immediately |
 | F10 | Select city | Cities | Selection persists across launches |
 | F11 | UI language switch | Forecast top bar | English (default) / Traditional Chinese |
+| F12 | Precipitation probability | Forecast | Per hour and per day; hidden at 0% |
+| F13 | Sunrise / sunset | Forecast | Today's times, from the daily forecast |
+| F14 | Air quality | Forecast | European AQI band, colour, level and PM2.5 |
+| F15 | Offline forecast cache | Forecast | Last forecast per city survives restarts |
+| F16 | Temperature unit switch | Forecast top bar | °C (default) / °F, persisted |
 
 ---
 
@@ -48,14 +65,17 @@ five well-known cities are preloaded, and any city worldwide can be searched and
 ## 2.1 Forecast screen
 
 ### Layout (top to bottom)
-1. **Top bar** — selected city name (or "Weather Forecast" before a city resolves); language
-   button (translate icon); search button (magnifier, filled rounded container — the primary
-   route into city management)
+1. **Top bar** — selected city name (or "Weather Forecast" before a city resolves);
+   temperature-unit button (°C/°F); language button (translate icon); search button
+   (magnifier, filled rounded container — the primary route into city management)
 2. **Error banner** — only when something is wrong (see 2.1.3)
 3. **Current weather card** — condition icon, large temperature, condition label, then
    feels-like / humidity / wind
-4. **"Next hours"** — horizontally scrollable list: hour, icon, temperature
-5. **"7-day forecast"** — one row per day: weekday, icon, condition, min/max
+4. **Air quality card** — colour dot, level label, AQI value and PM2.5 (hidden if unavailable)
+5. **Sun times row** — sunrise and sunset for today (hidden if the API omits them)
+6. **"Next hours"** — horizontally scrollable: hour, icon, temperature, precipitation %
+7. **"7-day forecast"** — one row per day: weekday, icon, condition, precipitation %, min/max
+8. **Last-updated label** — "Updated at HH:mm", or "Cached — last updated at HH:mm" when stale
 
 ### 2.1.1 States
 
@@ -105,6 +125,46 @@ The translate button opens a two-item menu: **English** and **繁體中文**. Ea
 its own language so it stays findable regardless of the current UI language; the active one is
 ticked. Choosing a language applies immediately (the system recreates the screen), persists
 across launches, and also changes the language of city names returned by search (see 2.2.3).
+
+### 2.1.6 Precipitation probability (F12)
+
+Chance of rain is shown as a percentage under each hour and each day. Values of 0% are hidden
+rather than shown as "0%", so the row stays readable on dry days. The data comes from
+Open-Meteo's `precipitation_probability` (hourly) and `precipitation_probability_max` (daily);
+when the API omits either, the label is simply absent.
+
+### 2.1.7 Air quality (F14)
+
+A card under the current weather shows the **European AQI** for the city: a colour dot matching
+the official band palette, the band name (Good / Fair / Moderate / Poor / Very poor / Extremely
+poor), the numeric AQI, and PM2.5 when available.
+
+Air quality is **supplementary data**: it is fetched separately from the forecast, and a failure
+hides the card silently — it never shows an error, never raises the banner, and never blocks the
+forecast. Locations without coverage return an empty payload, which is treated as "unavailable"
+rather than as an AQI of zero.
+
+### 2.1.8 Offline cache (F15)
+
+Every successful fetch is stored per city. On opening a city the app **shows the cached forecast
+immediately**, marked with "Cached — last updated at HH:mm", then refreshes in the background:
+
+| Situation | Behaviour |
+|---|---|
+| Cache exists, refresh succeeds | Cached data shown instantly, replaced by fresh data; label switches to "Updated at HH:mm" |
+| Cache exists, refresh fails | Cached data stays; label keeps the "Cached" prefix; banner explains the failure |
+| No cache, refresh fails | Error state with Retry (the pre-cache behaviour) |
+| Cold start with no connectivity | Full cached forecast is shown — the app is usable offline |
+
+A cache entry that cannot be read (corrupt row, older format) is treated as "no cache" rather
+than crashing.
+
+### 2.1.9 Temperature unit (F16)
+
+The top bar shows the active unit (°C or °F); tapping toggles it. The choice persists across
+launches and applies everywhere temperatures appear — current, feels-like, hourly and daily.
+Conversion happens **at display time only**: stored and cached values stay in Celsius, so
+switching units never triggers a network request or invalidates the cache.
 
 ## 2.2 Cities screen
 
@@ -167,9 +227,12 @@ required later are listed in 6.2.
 |---|---|
 | `City` | id, name, country, latitude, longitude |
 | `CurrentWeather` | temperature, feelsLike, humidity, windSpeed, condition, time |
-| `HourlyForecast` | time, temperature, condition |
-| `DailyForecast` | date, minTemperature, maxTemperature, condition |
-| `WeatherForecast` | current, hourly[], daily[] |
+| `HourlyForecast` | time, temperature, condition, precipitationProbability? |
+| `DailyForecast` | date, minTemperature, maxTemperature, condition, precipitationProbability?, sunrise?, sunset? |
+| `WeatherForecast` | current, hourly[], daily[] (`today` = first daily entry) |
+| `CachedForecast` | forecast, fetchedAt (Instant) |
+| `AirQuality` | europeanAqi, pm2_5?, pm10? (`level` derived from the AQI bands) |
+| `TemperatureUnit` | CELSIUS / FAHRENHEIT, with display-time conversion |
 | `WeatherCondition` | 16-value enum mapped from WMO weather codes |
 | `AppLanguage` | ENGLISH / TRADITIONAL_CHINESE (BCP-47 tag + geocoding code) |
 
@@ -183,8 +246,18 @@ required later are listed in 6.2.
 | Store | Contents | Lifetime |
 |---|---|---|
 | **Room** (`weather.db` → `saved_cities`) | id (PK), name, country, latitude, longitude, position | Until the user deletes the city or clears app data |
-| **DataStore** (`user_preferences`) | `selected_city_id` (Long), `app_language` (String tag) | Same |
-| **In-memory only** | Forecast data, search results, search query (the query survives process death via `SavedStateHandle`) | Process lifetime |
+| **Room** (`weather.db` → `cached_forecasts`) | cityId (PK), payload (JSON), fetchedAtMillis | Until overwritten by a newer fetch or app data is cleared |
+| **DataStore** (`user_preferences`) | `selected_city_id` (Long), `app_language` (String tag), `temperature_unit` (String) | Same |
+| **In-memory only** | Air quality, search results, search query (the query survives process death via `SavedStateHandle`) | Process lifetime |
+
+**Database versioning**: the cache table was added in **schema version 2** with an explicit
+`Migration(1, 2)` — not `fallbackToDestructiveMigration`, which would wipe the user's saved
+cities. A migration test builds a v1 database, inserts a city, migrates, and asserts both that
+the city survived and that the new table works.
+
+**Cache payload format**: `WeatherForecast` is serialized to JSON by `ForecastCacheSerializer`
+in `core:data`, using mirror data classes that carry the `@Serializable` annotations. Domain
+models stay framework-free, and the payload format can change without touching the schema.
 
 **City ids are GeoNames ids** — the same id space the geocoding API returns. Preloaded cities
 use their real GeoNames ids, so adding a city that is already saved replaces the row instead
@@ -200,6 +273,15 @@ of creating a duplicate. There is **no forecast cache**: the app always fetches 
 
 **Geocoding** — `GET https://geocoding-api.open-meteo.com/v1/search`
 `name` (query), `count=10`, `language` (`en` or `zh`), `format=json`
+
+**Air quality** — `GET https://air-quality-api.open-meteo.com/v1/air-quality`
+`latitude`, `longitude`, `current=european_aqi,pm2_5,pm10`, `timezone=auto`
+
+The forecast request also asks for `hourly=…,precipitation_probability` and
+`daily=…,sunrise,sunset,precipitation_probability_max`.
+
+All three base URLs are provided by a dedicated `BaseUrlModule`, so instrumentation tests can
+redirect every endpoint to a local MockWebServer with a single `@TestInstallIn`.
 
 Notes: `timezone=auto` means all times are already in the target city's local time, so no
 client-side conversion happens. The geocoding response **omits the `results` field entirely**
@@ -316,17 +398,21 @@ Rules an implementer must preserve when changing code:
 10. All times come from the API already localized to the city (`timezone=auto`).
 11. `CancellationException` is always rethrown, never mapped to an error.
 12. Every user-visible string is a string resource with a `zh-rTW` translation.
+13. Cached data is shown immediately and labelled stale until a refresh succeeds.
+14. An unreadable cache entry degrades to "no cache", never a crash.
+15. Air quality is supplementary: its failure is silent and never blocks the forecast.
+16. Temperature conversion happens at display time; stored values are always Celsius.
+17. Precipitation probability is hidden at 0% rather than rendered as "0%".
+18. Schema changes ship with an explicit migration — never destructive fallback.
 
 ---
 
 # Part 6 — Known Limitations & Extension Points
 
-## 6.1 No offline cache
-Forecasts are memory-only; a cold start without connectivity shows the error state. To add
-caching: introduce a `forecast` table (cityId PK, payload, fetchedAt), have the repository emit
-cached data first and refresh in the background, and add a "last updated" line to the UI. The
-domain interface would move from `suspend fun getForecast(): AppResult<…>` to
-`fun observeForecast(city): Flow<CachedForecast>`; feature code is otherwise unaffected.
+## 6.1 Cache has no expiry policy
+Cached forecasts never expire: a city not opened for a week still shows week-old data (clearly
+labelled) until a refresh succeeds. A time-to-live (e.g. treat data older than N hours as
+unusable) or a background refresh via WorkManager would be the next step.
 
 ## 6.2 Search requires Latin-script queries
 See 2.2.3. Options: (a) ship a local alias table mapping common native-script names to Latin
@@ -338,7 +424,16 @@ only entry point.
 ## 6.3 Other known gaps
 - Only two languages; adding one means a new `AppLanguage` entry, a `values-<locale>` folder,
   and a `locales_config.xml` line
-- Temperature is Celsius only (no unit preference)
 - Cities cannot be reordered (`position` exists in the schema but is append-only)
 - `WhileSubscribed(5_000)`: returning after more than 5 seconds re-shows Loading before data
 - E2E MockWebServer binds a fixed port (8080), which can clash on shared CI runners
+
+## 6.4 Highest-value features not built
+Ranked by the market evidence in 0.1, and why each was deferred:
+- **Radar map layer** — the biggest retention lever, but Open-Meteo serves no map tiles; needs a
+  paid tile provider (RainViewer/Windy) plus a map SDK
+- **Severe weather push alerts** — high engagement, but requires FCM and a backend scheduler
+- **Home screen widget** — Glance + WorkManager; feasible on the current data layer, the largest
+  remaining piece of pure client work
+- **Minute-level precipitation** — Open-Meteo offers 15-minute granularity (`minutely_15`) with
+  limited geographic coverage, so it would be inconsistent between cities
