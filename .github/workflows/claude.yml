@@ -1,0 +1,38 @@
+name: Claude PR Review
+
+on:
+  pull_request:
+    types: [opened, synchronize]
+  issue_comment:
+    types: [created]
+
+jobs:
+  claude:
+    # Run on new/updated PRs, or on comments that mention @claude
+    if: |
+      github.event_name == 'pull_request' ||
+      (github.event_name == 'issue_comment' && contains(github.event.comment.body, '@claude'))
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+      id-token: write
+      actions: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Run Claude Code
+        uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          prompt: |
+            Review this pull request as a senior Android engineer. Focus on:
+            1. Correctness: coroutine/Flow usage (cancellation, races, lifecycle), error handling, edge cases
+            2. Architecture: module boundaries, dependency direction, Clean Architecture adherence
+            3. Compose best practices: state hoisting, recomposition, side effects
+            4. Test quality: do tests verify behavior (not mocks)? coverage gaps?
+            Post your findings as PR review comments, ranked by severity.
