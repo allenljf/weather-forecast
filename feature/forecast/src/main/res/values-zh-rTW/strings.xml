@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="forecast_default_title">天氣預報</string>
+    <string name="manage_cities">管理城市</string>
+    <string name="search_cities">搜尋城市</string>
+    <string name="change_language">切換語言</string>
+    <string name="next_hours">未來時段</string>
+    <string name="seven_day_forecast">七日預報</string>
+    <string name="feels_like">體感 %1$d°</string>
+    <string name="humidity">濕度 %1$d%%</string>
+    <string name="wind">風速 %1$d 公里/小時</string>
+    <string name="min_max_temperature">%1$d° / %2$d°</string>
+    <string name="no_city_selected">尚未選擇城市，請先新增一個城市以查看天氣預報。</string>
+    <string name="forecast_error_network">無法載入 %1$s 的天氣預報，請檢查網路連線後再試一次。</string>
+    <string name="forecast_error_server">天氣服務目前無法使用，請稍後再試。</string>
+    <string name="forecast_error_unknown">載入 %1$s 的天氣預報時發生問題，請再試一次。</string>
+    <string name="retry_action">重試</string>
+    <string name="banner_offline">目前沒有網路連線，連線恢復後將自動重新載入。</string>
+    <string name="banner_server_error">天氣服務目前無法使用。</string>
+    <string name="banner_unknown_error">無法更新天氣預報。</string>
+    <string name="air_quality">空氣品質</string>
+    <string name="aqi_value">AQI %1$d</string>
+    <string name="pm25_value">PM2.5 %1$d</string>
+    <string name="sunrise">日出</string>
+    <string name="sunset">日落</string>
+    <string name="precipitation_probability">降雨 %1$d%%</string>
+    <string name="last_updated">更新於 %1$s</string>
+    <string name="last_updated_stale">離線資料 — 更新於 %1$s</string>
+</resources>

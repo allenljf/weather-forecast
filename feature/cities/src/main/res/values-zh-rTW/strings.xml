@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="cities_title">城市</string>
+    <string name="back">返回</string>
+    <string name="search_city_placeholder">搜尋要新增的城市（請輸入英文）</string>
+    <string name="clear_search">清除搜尋</string>
+    <string name="already_added">已加入</string>
+    <string name="add_city">新增 %1$s</string>
+    <string name="selected">已選擇</string>
+    <string name="select_city">選擇 %1$s</string>
+    <string name="delete_city">刪除 %1$s</string>
+    <string name="search_failed">搜尋失敗，請檢查網路連線後再試一次。</string>
+    <string name="no_matching_cities">找不到符合的城市，請繼續輸入（支援英文地名）。</string>
+    <string name="no_saved_cities">尚未儲存任何城市，請由上方搜尋新增。</string>
+</resources>
