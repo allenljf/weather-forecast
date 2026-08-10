@@ -197,6 +197,13 @@ They stay on disk until the next test run overwrites them (or `./gradlew clean`)
 - **Supplementary data fails quietly**: a failed air-quality request hides its card; only the
   forecast itself is allowed to surface an error.
 
+## CI
+
+Pull requests are reviewed automatically by Claude via
+[`.github/workflows/claude.yml`](.github/workflows/claude.yml) (correctness, coroutine/Flow
+lifecycle, module boundaries, Compose idioms, test quality). Commenting `@claude` on a PR
+re-runs it on demand.
+
 ## AI Tools
 
 This project was built with AI assistance — see [AI_TOOLS.md](AI_TOOLS.md) for the tools used

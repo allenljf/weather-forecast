@@ -11,6 +11,7 @@ architecture decision, reviewing all generated code, and verifying behavior on d
 |---|---|
 | **Claude Code** (Claude Fable 5) | Pair programmer: scaffolding, TDD implementation, debugging, docs |
 | **Superpowers** (Claude Code plugin) | Process framework: brainstorming → plan → TDD → review workflow |
+| **Claude Code GitHub Action** | Automated code review on every pull request, in CI |
 | **Android Studio** | IDE, emulator, final manual verification |
 
 ## How the workflow was applied
@@ -29,6 +30,10 @@ architecture decision, reviewing all generated code, and verifying behavior on d
    green before committing; the final app was manually exercised on an emulator (default city
    forecast, weekly list, search "Kaohsiung" → add → switch) and covered by instrumented E2E
    tests against a mocked Open-Meteo server.
+5. **Automated review in CI** — the work was merged through a pull request rather than pushed
+   straight to `main`, with [`.github/workflows/claude.yml`](.github/workflows/claude.yml)
+   running Claude as a reviewer on every PR update and on `@claude` mentions. See
+   "Automated PR review" below.
 
 ## From zero to done: how this session actually ran
 
@@ -111,6 +116,37 @@ instead of `fallbackToDestructiveMigration` — which would have silently wiped 
 cities on upgrade. That is exactly the kind of decision an AI will happily take the easy path on
 unless someone states the constraint.
 
+## Automated PR review
+
+Beyond reviewing inside the editing session, I wired Claude into CI so that review happens on the
+**pull request**, against the full diff, by a reviewer with no memory of how the code was written.
+
+**Setup** (in [`.github/workflows/claude.yml`](.github/workflows/claude.yml)):
+- The Claude GitHub App installed on the repository — without it the action fails with
+  "Claude Code is not installed on this repository"
+- A long-lived subscription token from `claude setup-token`, stored as the
+  `CLAUDE_CODE_OAUTH_TOKEN` repository secret (a plain API key works too, but bills per use
+  instead of drawing on the subscription)
+- Triggers: `pull_request` (opened/synchronize) for automatic review, plus `issue_comment` so I
+  can re-run it on demand by commenting `@claude review this PR`
+- A `prompt` that pins the review to what actually matters in this codebase: coroutine/Flow
+  correctness (cancellation, races, lifecycle), module boundaries and Clean Architecture
+  adherence, Compose idioms, and whether tests verify behaviour rather than mocks
+
+**Two setup problems worth recording**, since both produce confusing failures:
+1. The workflow file must exist **with identical content on the default branch**, or the action
+   skips with a validation error. A review workflow added inside the PR it is meant to review
+   cannot run until that file is also on `main`.
+2. My first token was pasted into the secret with a line break, which surfaced as an instant
+   `is_error: true` with zero cost and no explanation — the run dies before Claude does any
+   work. Verifying the token locally first (`CLAUDE_CODE_OAUTH_TOKEN=… claude -p "say hi"`)
+   isolates that in seconds.
+
+**What it caught.** On the PR containing the five follow-up features it filed two inline comments
+and a summary. The high-severity one was a genuine defect in code I had written that same session
+and manually tested — described in detail below. That is the case for running review in CI rather
+than only in the session that wrote the code.
+
 ## How I direct and verify the AI
 
 **Specs, not requests.** Task briefs to subagents carry: module boundaries, package naming, the
@@ -135,9 +171,8 @@ of them proactively flagged a cross-module consequence I had not asked about —
 API would break the E2E test module's dependency injection — which I then fixed before it could
 fail.
 
-That review loop then proved itself again on this round's own code. After pushing the five new
-features I had the PR reviewed by Claude in CI, and it found a defect I had missed **in code I
-had just written and manually tested**: the air-quality fetch was launched in a detached
+That review loop then proved itself again on this round's own code. The CI reviewer described
+above found a defect I had missed **in code I had just written and manually tested**: the air-quality fetch was launched in a detached
 `viewModelScope.launch` from inside the flow that `flatMapLatest` cancels, so it escaped that
 cancellation. Two consequences — a previous city's reading rendered next to the new city's
 forecast on every switch, and a slow response could overwrite a newer one. The irony is that I
