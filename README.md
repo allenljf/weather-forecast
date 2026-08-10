@@ -124,7 +124,14 @@ straight from a clean clone:
 
 ## Getting Started
 
-Requirements: Android Studio (AGP 9.x / JDK 17+ via toolchain), Android SDK 37.
+Requirements:
+- **Android Studio Narwhal (2025.1.1) or newer** — the project uses AGP 9.1.1; older IDEs will
+  refuse to sync with an "incompatible AGP version" error
+- JDK 17+ (resolved automatically via the Gradle toolchain)
+- Android SDK Platform 37 (Android Studio offers to install it on first sync)
+
+`compileSdk = 37`, `targetSdk = 36` (meeting Google Play's target API requirement effective
+31 Aug 2026), `minSdk = 26`.
 
 ```bash
 git clone <this repo>
