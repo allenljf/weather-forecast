@@ -8,10 +8,10 @@ on:
 
 jobs:
   claude:
-    # Run on new/updated PRs, or on comments that mention @claude
+    # Run on new/updated non-draft PRs, or on PR comments that mention @claude
     if: |
-      github.event_name == 'pull_request' ||
-      (github.event_name == 'issue_comment' && contains(github.event.comment.body, '@claude'))
+      (github.event_name == 'pull_request' && github.event.pull_request.draft == false) ||
+      (github.event_name == 'issue_comment' && github.event.issue.pull_request && contains(github.event.comment.body, '@claude'))
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -29,10 +29,20 @@ jobs:
         uses: anthropics/claude-code-action@v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          # Posts a progress comment with checkboxes so failures are visible on the
+          # PR itself instead of only in the Actions log.
+          track_progress: true
           prompt: |
             Review this pull request as a senior Android engineer. Focus on:
             1. Correctness: coroutine/Flow usage (cancellation, races, lifecycle), error handling, edge cases
             2. Architecture: module boundaries, dependency direction, Clean Architecture adherence
             3. Compose best practices: state hoisting, recomposition, side effects
             4. Test quality: do tests verify behavior (not mocks)? coverage gaps?
-            Post your findings as PR review comments, ranked by severity.
+
+            Post each finding as an inline review comment via
+            mcp__github_inline_comment__create_inline_comment with confirmed: true,
+            then post one summary comment with `gh pr comment`, ranked by severity.
+          # Without this, agent mode has no comment-posting tools: the review runs to
+          # completion and every post attempt is denied.
+          claude_args: |
+            --allowedTools "mcp__github_inline_comment__create_inline_comment,Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*),Read,Grep,Glob"
