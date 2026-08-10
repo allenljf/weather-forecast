@@ -1,11 +1,15 @@
 package com.allenljf.weatherforecast.feature.forecast
 
 import com.allenljf.weatherforecast.core.common.result.AppError
+import com.allenljf.weatherforecast.core.domain.model.AirQuality
 import com.allenljf.weatherforecast.core.domain.model.AppLanguage
 import com.allenljf.weatherforecast.core.domain.model.City
 import com.allenljf.weatherforecast.core.domain.model.CurrentWeather
 import com.allenljf.weatherforecast.core.domain.model.DailyForecast
 import com.allenljf.weatherforecast.core.domain.model.HourlyForecast
+import com.allenljf.weatherforecast.core.domain.model.TemperatureUnit
+import java.time.Instant
+import java.time.LocalDateTime
 
 sealed interface ForecastUiState {
     data object Loading : ForecastUiState
@@ -20,6 +24,13 @@ sealed interface ForecastUiState {
         val hourly: List<HourlyForecast>,
         /** Seven-day forecast including today. */
         val daily: List<DailyForecast>,
+        /** When this data was fetched, so the UI can show its age. */
+        val fetchedAt: Instant,
+        /** True while showing cached data that hasn't been refreshed this session. */
+        val isStale: Boolean = false,
+        /** Today's sunrise/sunset, taken from the first daily entry. */
+        val sunrise: LocalDateTime? = null,
+        val sunset: LocalDateTime? = null,
     ) : ForecastUiState
 
     data class Error(val city: City, val error: AppError) : ForecastUiState
@@ -35,6 +46,9 @@ data class ForecastScreenState(
     val isRefreshing: Boolean = false,
     val banner: ForecastBanner? = null,
     val language: AppLanguage = AppLanguage.DEFAULT,
+    val temperatureUnit: TemperatureUnit = TemperatureUnit.DEFAULT,
+    /** Null while loading or when the air quality request failed. */
+    val airQuality: AirQuality? = null,
 )
 
 /**

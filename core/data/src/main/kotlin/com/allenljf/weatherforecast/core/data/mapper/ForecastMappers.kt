@@ -32,6 +32,7 @@ private fun HourlyDto.toDomain(): List<HourlyForecast> = time.indices.map { inde
         time = LocalDateTime.parse(time[index]),
         temperature = temperature2m[index],
         condition = WeatherCondition.fromWmoCode(weatherCode[index]),
+        precipitationProbability = precipitationProbability?.getOrNull(index),
     )
 }
 
@@ -41,5 +42,8 @@ private fun DailyDto.toDomain(): List<DailyForecast> = time.indices.map { index 
         minTemperature = temperature2mMin[index],
         maxTemperature = temperature2mMax[index],
         condition = WeatherCondition.fromWmoCode(weatherCode[index]),
+        precipitationProbability = precipitationProbabilityMax?.getOrNull(index),
+        sunrise = sunrise?.getOrNull(index)?.let(LocalDateTime::parse),
+        sunset = sunset?.getOrNull(index)?.let(LocalDateTime::parse),
     )
 }

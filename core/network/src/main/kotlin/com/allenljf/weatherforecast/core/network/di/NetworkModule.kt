@@ -2,6 +2,7 @@ package com.allenljf.weatherforecast.core.network.di
 
 import android.content.Context
 import android.content.pm.ApplicationInfo
+import com.allenljf.weatherforecast.core.network.api.AirQualityApi
 import com.allenljf.weatherforecast.core.network.api.ForecastApi
 import com.allenljf.weatherforecast.core.network.api.GeocodingApi
 import dagger.Module
@@ -32,7 +33,15 @@ annotation class ForecastBaseUrl
 
 @Qualifier
 @Retention(AnnotationRetention.BINARY)
+annotation class AirQualityRetrofit
+
+@Qualifier
+@Retention(AnnotationRetention.BINARY)
 annotation class GeocodingBaseUrl
+
+@Qualifier
+@Retention(AnnotationRetention.BINARY)
+annotation class AirQualityBaseUrl
 
 /**
  * Base URLs live in their own module so instrumentation tests can replace
@@ -49,6 +58,10 @@ object BaseUrlModule {
     @Provides
     @GeocodingBaseUrl
     fun provideGeocodingBaseUrl(): String = "https://geocoding-api.open-meteo.com/"
+
+    @Provides
+    @AirQualityBaseUrl
+    fun provideAirQualityBaseUrl(): String = "https://air-quality-api.open-meteo.com/"
 }
 
 @Module
@@ -106,6 +119,20 @@ object NetworkModule {
 
     @Provides
     @Singleton
+    @AirQualityRetrofit
+    fun provideAirQualityRetrofit(
+        json: Json,
+        okHttpClient: OkHttpClient,
+        @AirQualityBaseUrl baseUrl: String,
+    ): Retrofit =
+        Retrofit.Builder()
+            .baseUrl(baseUrl)
+            .client(okHttpClient)
+            .addConverterFactory(json.asConverterFactory("application/json".toMediaType()))
+            .build()
+
+    @Provides
+    @Singleton
     fun provideForecastApi(@ForecastRetrofit retrofit: Retrofit): ForecastApi =
         retrofit.create(ForecastApi::class.java)
 
@@ -113,4 +140,9 @@ object NetworkModule {
     @Singleton
     fun provideGeocodingApi(@GeocodingRetrofit retrofit: Retrofit): GeocodingApi =
         retrofit.create(GeocodingApi::class.java)
+
+    @Provides
+    @Singleton
+    fun provideAirQualityApi(@AirQualityRetrofit retrofit: Retrofit): AirQualityApi =
+        retrofit.create(AirQualityApi::class.java)
 }

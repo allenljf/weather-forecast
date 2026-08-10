@@ -13,12 +13,16 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.NightsStay
 import androidx.compose.material.icons.filled.Translate
+import androidx.compose.material.icons.filled.WbTwilight
 import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.DropdownMenu
@@ -51,11 +55,14 @@ import com.allenljf.weatherforecast.core.designsystem.component.LoadingState
 import com.allenljf.weatherforecast.core.designsystem.component.WeatherConditionIcon
 import com.allenljf.weatherforecast.core.designsystem.component.localizedLabel
 import com.allenljf.weatherforecast.core.common.result.AppError
+import com.allenljf.weatherforecast.core.designsystem.component.color
 import com.allenljf.weatherforecast.core.designsystem.component.labelRes
+import com.allenljf.weatherforecast.core.domain.model.AirQuality
 import com.allenljf.weatherforecast.core.domain.model.AppLanguage
 import com.allenljf.weatherforecast.core.domain.model.CurrentWeather
 import com.allenljf.weatherforecast.core.domain.model.DailyForecast
 import com.allenljf.weatherforecast.core.domain.model.HourlyForecast
+import com.allenljf.weatherforecast.core.domain.model.TemperatureUnit
 import androidx.compose.ui.text.intl.Locale as ComposeLocale
 import java.time.format.DateTimeFormatter
 import java.time.format.TextStyle
@@ -75,6 +82,7 @@ fun ForecastRoute(
         onRetry = viewModel::onRetry,
         onRefresh = viewModel::onRefresh,
         onLanguageSelected = viewModel::onLanguageSelected,
+        onToggleTemperatureUnit = viewModel::onToggleTemperatureUnit,
     )
 }
 
@@ -86,6 +94,7 @@ fun ForecastScreen(
     onRetry: () -> Unit,
     onRefresh: () -> Unit,
     onLanguageSelected: (AppLanguage) -> Unit = {},
+    onToggleTemperatureUnit: () -> Unit = {},
 ) {
     val uiState = screenState.forecast
     Scaffold(
@@ -100,6 +109,10 @@ fun ForecastScreen(
                     Text(text = title, modifier = Modifier.testTag("forecast_title"))
                 },
                 actions = {
+                    TemperatureUnitButton(
+                        unit = screenState.temperatureUnit,
+                        onClick = onToggleTemperatureUnit,
+                    )
                     LanguageMenu(
                         current = screenState.language,
                         onLanguageSelected = onLanguageSelected,
@@ -119,9 +132,28 @@ fun ForecastScreen(
                 onRefresh = onRefresh,
                 modifier = Modifier.fillMaxSize(),
             ) {
-                ForecastBody(uiState = uiState, onRetry = onRetry)
+                ForecastBody(
+                    uiState = uiState,
+                    unit = screenState.temperatureUnit,
+                    airQuality = screenState.airQuality,
+                    onRetry = onRetry,
+                )
             }
         }
+    }
+}
+
+/** Toggles between °C and °F; the label always shows the unit in use. */
+@Composable
+private fun TemperatureUnitButton(
+    unit: TemperatureUnit,
+    onClick: () -> Unit,
+) {
+    TextButton(
+        onClick = onClick,
+        modifier = Modifier.testTag("temperature_unit_button"),
+    ) {
+        Text(text = unit.symbol, style = MaterialTheme.typography.titleMedium)
     }
 }
 
@@ -239,6 +271,8 @@ private fun ForecastBannerBar(
 @Composable
 private fun ForecastBody(
     uiState: ForecastUiState,
+    unit: TemperatureUnit,
+    airQuality: AirQuality?,
     onRetry: () -> Unit,
 ) {
     val contentModifier = Modifier.fillMaxSize()
@@ -263,6 +297,8 @@ private fun ForecastBody(
 
         is ForecastUiState.Success -> ForecastContent(
             uiState = uiState,
+            unit = unit,
+            airQuality = airQuality,
             modifier = contentModifier,
         )
     }
@@ -271,6 +307,8 @@ private fun ForecastBody(
 @Composable
 private fun ForecastContent(
     uiState: ForecastUiState.Success,
+    unit: TemperatureUnit,
+    airQuality: AirQuality?,
     modifier: Modifier = Modifier,
 ) {
     LazyColumn(
@@ -278,7 +316,15 @@ private fun ForecastContent(
         contentPadding = PaddingValues(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        item { CurrentWeatherCard(current = uiState.current) }
+        item { CurrentWeatherCard(uiState = uiState, unit = unit) }
+
+        if (airQuality != null) {
+            item { AirQualityCard(airQuality = airQuality) }
+        }
+
+        if (uiState.sunrise != null || uiState.sunset != null) {
+            item { SunTimesRow(sunrise = uiState.sunrise, sunset = uiState.sunset) }
+        }
 
         item {
             Text(
@@ -286,7 +332,7 @@ private fun ForecastContent(
                 style = MaterialTheme.typography.titleMedium,
             )
         }
-        item { HourlyRow(hourly = uiState.hourly) }
+        item { HourlyRow(hourly = uiState.hourly, unit = unit) }
 
         item {
             Text(
@@ -295,13 +341,20 @@ private fun ForecastContent(
             )
         }
         items(uiState.daily, key = { it.date.toEpochDay() }) { day ->
-            DailyRow(day = day)
+            DailyRow(day = day, unit = unit)
         }
+
+        item { LastUpdatedLabel(fetchedAt = uiState.fetchedAt, isStale = uiState.isStale) }
     }
 }
 
 @Composable
-private fun CurrentWeatherCard(current: CurrentWeather, modifier: Modifier = Modifier) {
+private fun CurrentWeatherCard(
+    uiState: ForecastUiState.Success,
+    unit: TemperatureUnit,
+    modifier: Modifier = Modifier,
+) {
+    val current = uiState.current
     Card(
         modifier = modifier
             .fillMaxWidth()
@@ -319,7 +372,7 @@ private fun CurrentWeatherCard(current: CurrentWeather, modifier: Modifier = Mod
                 modifier = Modifier.size(64.dp),
             )
             Text(
-                text = "${current.temperature.roundToInt()}°",
+                text = "${unit.format(current.temperature)}°",
                 style = MaterialTheme.typography.displayLarge,
                 modifier = Modifier.testTag("current_temperature"),
             )
@@ -329,7 +382,7 @@ private fun CurrentWeatherCard(current: CurrentWeather, modifier: Modifier = Mod
             )
             Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                 Text(
-                    text = stringResource(R.string.feels_like, current.feelsLike.roundToInt()),
+                    text = stringResource(R.string.feels_like, unit.format(current.feelsLike)),
                     style = MaterialTheme.typography.bodyMedium,
                 )
                 Text(
@@ -346,7 +399,108 @@ private fun CurrentWeatherCard(current: CurrentWeather, modifier: Modifier = Mod
 }
 
 @Composable
-private fun HourlyRow(hourly: List<HourlyForecast>, modifier: Modifier = Modifier) {
+private fun AirQualityCard(airQuality: AirQuality, modifier: Modifier = Modifier) {
+    Card(
+        modifier = modifier
+            .fillMaxWidth()
+            .testTag("air_quality_card"),
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(12.dp)
+                    .background(airQuality.level.color, CircleShape),
+            )
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = stringResource(R.string.air_quality),
+                    style = MaterialTheme.typography.labelMedium,
+                )
+                Text(
+                    text = stringResource(airQuality.level.labelRes),
+                    style = MaterialTheme.typography.titleMedium,
+                )
+            }
+            Column(horizontalAlignment = Alignment.End) {
+                Text(
+                    text = stringResource(R.string.aqi_value, airQuality.europeanAqi),
+                    style = MaterialTheme.typography.titleMedium,
+                )
+                airQuality.pm2_5?.let {
+                    Text(
+                        text = stringResource(R.string.pm25_value, it.roundToInt()),
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SunTimesRow(
+    sunrise: java.time.LocalDateTime?,
+    sunset: java.time.LocalDateTime?,
+    modifier: Modifier = Modifier,
+) {
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .testTag("sun_times_row"),
+        horizontalArrangement = Arrangement.spacedBy(24.dp),
+    ) {
+        sunrise?.let {
+            SunTime(
+                icon = Icons.Filled.WbTwilight,
+                label = stringResource(R.string.sunrise),
+                time = it.format(HOUR_FORMATTER),
+            )
+        }
+        sunset?.let {
+            SunTime(
+                icon = Icons.Filled.NightsStay,
+                label = stringResource(R.string.sunset),
+                time = it.format(HOUR_FORMATTER),
+            )
+        }
+    }
+}
+
+@Composable
+private fun SunTime(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    label: String,
+    time: String,
+) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            modifier = Modifier.size(20.dp),
+            tint = MaterialTheme.colorScheme.primary,
+        )
+        Column {
+            Text(text = label, style = MaterialTheme.typography.labelSmall)
+            Text(text = time, style = MaterialTheme.typography.bodyMedium)
+        }
+    }
+}
+
+@Composable
+private fun HourlyRow(
+    hourly: List<HourlyForecast>,
+    unit: TemperatureUnit,
+    modifier: Modifier = Modifier,
+) {
     LazyRow(
         modifier = modifier.testTag("hourly_forecast_row"),
         horizontalArrangement = Arrangement.spacedBy(16.dp),
@@ -365,16 +519,28 @@ private fun HourlyRow(hourly: List<HourlyForecast>, modifier: Modifier = Modifie
                     modifier = Modifier.size(24.dp),
                 )
                 Text(
-                    text = "${hour.temperature.roundToInt()}°",
+                    text = "${unit.format(hour.temperature)}°",
                     style = MaterialTheme.typography.bodyMedium,
                 )
+                // Only worth showing when rain is actually plausible.
+                hour.precipitationProbability?.takeIf { it > 0 }?.let { probability ->
+                    Text(
+                        text = stringResource(R.string.precipitation_probability, probability),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                }
             }
         }
     }
 }
 
 @Composable
-private fun DailyRow(day: DailyForecast, modifier: Modifier = Modifier) {
+private fun DailyRow(
+    day: DailyForecast,
+    unit: TemperatureUnit,
+    modifier: Modifier = Modifier,
+) {
     Column(modifier = modifier.fillMaxWidth()) {
         Row(
             modifier = Modifier
@@ -395,18 +561,56 @@ private fun DailyRow(day: DailyForecast, modifier: Modifier = Modifier) {
                 modifier = Modifier.size(24.dp),
             )
             Spacer(modifier = Modifier.width(16.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = day.condition.localizedLabel(),
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+                day.precipitationProbability?.takeIf { it > 0 }?.let { probability ->
+                    Text(
+                        text = stringResource(R.string.precipitation_probability, probability),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                }
+            }
             Text(
-                text = day.condition.localizedLabel(),
-                style = MaterialTheme.typography.bodyMedium,
-                modifier = Modifier.weight(1f),
-            )
-            Text(
-                text = stringResource(R.string.min_max_temperature, day.minTemperature.roundToInt(), day.maxTemperature.roundToInt()),
+                text = stringResource(
+                    R.string.min_max_temperature,
+                    unit.format(day.minTemperature),
+                    unit.format(day.maxTemperature),
+                ),
                 style = MaterialTheme.typography.bodyLarge,
             )
         }
         HorizontalDivider(modifier = Modifier.padding(top = 8.dp))
     }
+}
+
+/** Shows when the data was fetched, and flags it when it is cached/stale. */
+@Composable
+private fun LastUpdatedLabel(
+    fetchedAt: java.time.Instant,
+    isStale: Boolean,
+    modifier: Modifier = Modifier,
+) {
+    val time = remember(fetchedAt) {
+        java.time.LocalDateTime.ofInstant(fetchedAt, java.time.ZoneId.systemDefault())
+            .format(HOUR_FORMATTER)
+    }
+    Text(
+        text = if (isStale) {
+            stringResource(R.string.last_updated_stale, time)
+        } else {
+            stringResource(R.string.last_updated, time)
+        },
+        style = MaterialTheme.typography.labelSmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = modifier
+            .fillMaxWidth()
+            .testTag("last_updated_label"),
+        textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+    )
 }
 
 private val HOUR_FORMATTER: DateTimeFormatter = DateTimeFormatter.ofPattern("HH:mm")

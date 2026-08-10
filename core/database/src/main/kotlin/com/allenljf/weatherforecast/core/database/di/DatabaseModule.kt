@@ -6,6 +6,7 @@ import androidx.room.RoomDatabase
 import androidx.sqlite.db.SupportSQLiteDatabase
 import com.allenljf.weatherforecast.core.database.WeatherDatabase
 import com.allenljf.weatherforecast.core.database.dao.CityDao
+import com.allenljf.weatherforecast.core.database.dao.ForecastCacheDao
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -45,8 +46,13 @@ object DatabaseModule {
     fun provideWeatherDatabase(@ApplicationContext context: Context): WeatherDatabase =
         Room.databaseBuilder(context, WeatherDatabase::class.java, "weather.db")
             .addCallback(DefaultCitiesSeedCallback)
+            .addMigrations(WeatherDatabase.MIGRATION_1_2)
             .build()
 
     @Provides
     fun provideCityDao(database: WeatherDatabase): CityDao = database.cityDao()
+
+    @Provides
+    fun provideForecastCacheDao(database: WeatherDatabase): ForecastCacheDao =
+        database.forecastCacheDao()
 }

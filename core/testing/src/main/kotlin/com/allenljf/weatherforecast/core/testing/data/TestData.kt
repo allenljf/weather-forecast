@@ -34,6 +34,7 @@ object TestData {
                     time = LocalDateTime.of(2026, 8, 10, hour, 0),
                     temperature = temperature - 3 + hour * 0.25,
                     condition = condition,
+                    precipitationProbability = 10 + hour,
                 )
             },
             daily = (0 until 7).map { day ->
@@ -42,6 +43,9 @@ object TestData {
                     minTemperature = temperature - 5,
                     maxTemperature = temperature + 3,
                     condition = condition,
+                    precipitationProbability = 40,
+                    sunrise = LocalDateTime.of(2026, 8, 10, 5, 16).plusDays(day.toLong()),
+                    sunset = LocalDateTime.of(2026, 8, 10, 18, 35).plusDays(day.toLong()),
                 )
             },
         )

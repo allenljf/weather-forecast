@@ -20,7 +20,9 @@ interface ForecastApi {
     companion object {
         const val DEFAULT_CURRENT_FIELDS =
             "temperature_2m,apparent_temperature,relative_humidity_2m,weather_code,wind_speed_10m"
-        const val DEFAULT_HOURLY_FIELDS = "temperature_2m,weather_code"
-        const val DEFAULT_DAILY_FIELDS = "weather_code,temperature_2m_max,temperature_2m_min"
+        const val DEFAULT_HOURLY_FIELDS = "temperature_2m,weather_code,precipitation_probability"
+        const val DEFAULT_DAILY_FIELDS =
+            "weather_code,temperature_2m_max,temperature_2m_min," +
+                "sunrise,sunset,precipitation_probability_max"
     }
 }

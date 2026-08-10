@@ -22,4 +22,11 @@
     <string name="condition_thunderstorm">Thunderstorm</string>
     <string name="condition_thunderstorm_with_hail">Thunderstorm with hail</string>
     <string name="condition_unknown">Unknown</string>
+
+    <string name="aqi_good">Good</string>
+    <string name="aqi_fair">Fair</string>
+    <string name="aqi_moderate">Moderate</string>
+    <string name="aqi_poor">Poor</string>
+    <string name="aqi_very_poor">Very poor</string>
+    <string name="aqi_extremely_poor">Extremely poor</string>
 </resources>

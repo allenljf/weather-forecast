@@ -7,6 +7,7 @@ import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
 import org.junit.Before
@@ -61,6 +62,7 @@ class ForecastApiTest {
             assertEquals(listOf("2026-08-10T00:00", "2026-08-10T01:00"), time)
             assertEquals(listOf(27.1, 26.8), temperature2m)
             assertEquals(listOf(1, 3), weatherCode)
+            assertEquals(listOf(15, 20), precipitationProbability)
         }
 
         with(response.daily) {
@@ -68,7 +70,37 @@ class ForecastApiTest {
             assertEquals(listOf(61, 2), weatherCode)
             assertEquals(listOf(31.0, 32.5), temperature2mMax)
             assertEquals(listOf(26.0, 25.5), temperature2mMin)
+            assertEquals(listOf("2026-08-10T05:16", "2026-08-11T05:17"), sunrise)
+            assertEquals(listOf("2026-08-10T18:35", "2026-08-11T18:34"), sunset)
+            assertEquals(listOf(80, 10), precipitationProbabilityMax)
         }
+    }
+
+    @Test
+    fun `getForecast parses response without precipitation and sun fields`() = runTest {
+        server.enqueue(
+            MockResponse().setResponseCode(200).setBody(SAMPLE_FORECAST_JSON_WITHOUT_NEW_FIELDS),
+        )
+
+        val response = api.getForecast(latitude = 25.0, longitude = 121.5)
+
+        assertEquals(listOf(27.1, 26.8), response.hourly.temperature2m)
+        assertNull(response.hourly.precipitationProbability)
+        assertNull(response.daily.sunrise)
+        assertNull(response.daily.sunset)
+        assertNull(response.daily.precipitationProbabilityMax)
+    }
+
+    @Test
+    fun `getForecast parses null entries inside precipitation probability arrays`() = runTest {
+        server.enqueue(
+            MockResponse().setResponseCode(200).setBody(SAMPLE_FORECAST_JSON_WITH_NULL_ENTRIES),
+        )
+
+        val response = api.getForecast(latitude = 25.0, longitude = 121.5)
+
+        assertEquals(listOf(15, null), response.hourly.precipitationProbability)
+        assertEquals(listOf(null), response.daily.precipitationProbabilityMax)
     }
 
     @Test
@@ -99,11 +131,21 @@ class ForecastApiTest {
             "temperature_2m,apparent_temperature,relative_humidity_2m,weather_code,wind_speed_10m",
             url.queryParameter("current"),
         )
-        assertEquals("temperature_2m,weather_code", url.queryParameter("hourly"))
         assertEquals(
-            "weather_code,temperature_2m_max,temperature_2m_min",
+            "temperature_2m,weather_code,precipitation_probability",
+            url.queryParameter("hourly"),
+        )
+        assertEquals(
+            "weather_code,temperature_2m_max,temperature_2m_min," +
+                "sunrise,sunset,precipitation_probability_max",
             url.queryParameter("daily"),
         )
+        val daily = requireNotNull(url.queryParameter("daily"))
+        assertTrue("daily was $daily", daily.contains("sunrise"))
+        assertTrue("daily was $daily", daily.contains("sunset"))
+        assertTrue("daily was $daily", daily.contains("precipitation_probability_max"))
+        val hourly = requireNotNull(url.queryParameter("hourly"))
+        assertTrue("hourly was $hourly", hourly.contains("precipitation_probability"))
         assertEquals("auto", url.queryParameter("timezone"))
         assertEquals("7", url.queryParameter("forecast_days"))
     }
@@ -153,6 +195,37 @@ class ForecastApiTest {
               "hourly": {
                 "time": ["2026-08-10T00:00", "2026-08-10T01:00"],
                 "temperature_2m": [27.1, 26.8],
+                "weather_code": [1, 3],
+                "precipitation_probability": [15, 20]
+              },
+              "daily": {
+                "time": ["2026-08-10", "2026-08-11"],
+                "weather_code": [61, 2],
+                "temperature_2m_max": [31.0, 32.5],
+                "temperature_2m_min": [26.0, 25.5],
+                "sunrise": ["2026-08-10T05:16", "2026-08-11T05:17"],
+                "sunset": ["2026-08-10T18:35", "2026-08-11T18:34"],
+                "precipitation_probability_max": [80, 10]
+              }
+            }
+        """.trimIndent()
+
+        private val SAMPLE_FORECAST_JSON_WITHOUT_NEW_FIELDS = """
+            {
+              "latitude": 25.0,
+              "longitude": 121.5,
+              "timezone": "Asia/Taipei",
+              "current": {
+                "time": "2026-08-10T12:00",
+                "temperature_2m": 30.5,
+                "apparent_temperature": 34.2,
+                "relative_humidity_2m": 70,
+                "weather_code": 2,
+                "wind_speed_10m": 12.3
+              },
+              "hourly": {
+                "time": ["2026-08-10T00:00", "2026-08-10T01:00"],
+                "temperature_2m": [27.1, 26.8],
                 "weather_code": [1, 3]
               },
               "daily": {
@@ -160,6 +233,37 @@ class ForecastApiTest {
                 "weather_code": [61, 2],
                 "temperature_2m_max": [31.0, 32.5],
                 "temperature_2m_min": [26.0, 25.5]
+              }
+            }
+        """.trimIndent()
+
+        private val SAMPLE_FORECAST_JSON_WITH_NULL_ENTRIES = """
+            {
+              "latitude": 25.0,
+              "longitude": 121.5,
+              "timezone": "Asia/Taipei",
+              "current": {
+                "time": "2026-08-10T12:00",
+                "temperature_2m": 30.5,
+                "apparent_temperature": 34.2,
+                "relative_humidity_2m": 70,
+                "weather_code": 2,
+                "wind_speed_10m": 12.3
+              },
+              "hourly": {
+                "time": ["2026-08-10T00:00", "2026-08-10T01:00"],
+                "temperature_2m": [27.1, 26.8],
+                "weather_code": [1, 3],
+                "precipitation_probability": [15, null]
+              },
+              "daily": {
+                "time": ["2026-08-10"],
+                "weather_code": [61],
+                "temperature_2m_max": [31.0],
+                "temperature_2m_min": [26.0],
+                "sunrise": ["2026-08-10T05:16"],
+                "sunset": ["2026-08-10T18:35"],
+                "precipitation_probability_max": [null]
               }
             }
         """.trimIndent()

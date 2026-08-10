@@ -18,4 +18,12 @@
     <string name="banner_offline">目前沒有網路連線，連線恢復後將自動重新載入。</string>
     <string name="banner_server_error">天氣服務目前無法使用。</string>
     <string name="banner_unknown_error">無法更新天氣預報。</string>
+    <string name="air_quality">空氣品質</string>
+    <string name="aqi_value">AQI %1$d</string>
+    <string name="pm25_value">PM2.5 %1$d</string>
+    <string name="sunrise">日出</string>
+    <string name="sunset">日落</string>
+    <string name="precipitation_probability">降雨 %1$d%%</string>
+    <string name="last_updated">更新於 %1$s</string>
+    <string name="last_updated_stale">離線資料 — 更新於 %1$s</string>
 </resources>

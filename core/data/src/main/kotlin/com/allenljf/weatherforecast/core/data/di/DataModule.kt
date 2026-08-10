@@ -14,6 +14,7 @@ import javax.inject.Singleton
 @InstallIn(SingletonComponent::class)
 internal interface DataModule {
 
+
     @Binds
     @Singleton
     fun bindForecastRepository(impl: ForecastRepositoryImpl): ForecastRepository
@@ -24,7 +25,26 @@ internal interface DataModule {
 
     @Binds
     @Singleton
+    fun bindUserPreferencesRepository(
+        impl: com.allenljf.weatherforecast.core.data.repository.UserPreferencesRepositoryImpl,
+    ): com.allenljf.weatherforecast.core.domain.repository.UserPreferencesRepository
+
+    @Binds
+    @Singleton
+    fun bindAirQualityRepository(
+        impl: com.allenljf.weatherforecast.core.data.repository.AirQualityRepositoryImpl,
+    ): com.allenljf.weatherforecast.core.domain.repository.AirQualityRepository
+
+    @Binds
+    @Singleton
     fun bindAppLanguageRepository(
         impl: com.allenljf.weatherforecast.core.data.repository.AppLanguageRepositoryImpl,
     ): com.allenljf.weatherforecast.core.domain.repository.AppLanguageRepository
+}
+
+@dagger.Module
+@dagger.hilt.InstallIn(dagger.hilt.components.SingletonComponent::class)
+internal object ClockModule {
+    @dagger.Provides
+    fun provideClock(): java.time.Clock = java.time.Clock.systemUTC()
 }

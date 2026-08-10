@@ -1,6 +1,7 @@
 plugins {
     id("weatherforecast.android.library")
     id("weatherforecast.hilt")
+    alias(libs.plugins.kotlin.serialization)
 }
 
 android {
@@ -16,4 +17,5 @@ dependencies {
 
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.retrofit)
+    implementation(libs.kotlinx.serialization.json)
 }

@@ -1,6 +1,7 @@
 package com.allenljf.weatherforecast.di
 
 import com.allenljf.weatherforecast.core.network.di.BaseUrlModule
+import com.allenljf.weatherforecast.core.network.di.AirQualityBaseUrl
 import com.allenljf.weatherforecast.core.network.di.ForecastBaseUrl
 import com.allenljf.weatherforecast.core.network.di.GeocodingBaseUrl
 import dagger.Module
@@ -27,4 +28,8 @@ object TestBaseUrlModule {
     @Provides
     @GeocodingBaseUrl
     fun provideGeocodingBaseUrl(): String = "http://127.0.0.1:$MOCK_SERVER_PORT/"
+
+    @Provides
+    @AirQualityBaseUrl
+    fun provideAirQualityBaseUrl(): String = "http://127.0.0.1:$MOCK_SERVER_PORT/"
 }

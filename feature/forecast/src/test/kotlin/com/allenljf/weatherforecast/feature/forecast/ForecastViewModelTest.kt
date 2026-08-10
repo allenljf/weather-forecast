@@ -3,16 +3,24 @@ package com.allenljf.weatherforecast.feature.forecast
 import app.cash.turbine.test
 import com.allenljf.weatherforecast.core.common.result.AppError
 import com.allenljf.weatherforecast.core.common.result.AppResult
+import com.allenljf.weatherforecast.core.domain.model.AirQuality
 import com.allenljf.weatherforecast.core.domain.model.AppLanguage
+import com.allenljf.weatherforecast.core.domain.model.TemperatureUnit
+import com.allenljf.weatherforecast.core.domain.usecase.GetAirQualityUseCase
+import com.allenljf.weatherforecast.core.domain.usecase.GetCachedForecastUseCase
 import com.allenljf.weatherforecast.core.domain.usecase.GetForecastUseCase
 import com.allenljf.weatherforecast.core.domain.usecase.ObserveAppLanguageUseCase
 import com.allenljf.weatherforecast.core.domain.usecase.ObserveSelectedCityUseCase
+import com.allenljf.weatherforecast.core.domain.usecase.ObserveTemperatureUnitUseCase
 import com.allenljf.weatherforecast.core.domain.usecase.SetAppLanguageUseCase
+import com.allenljf.weatherforecast.core.domain.usecase.SetTemperatureUnitUseCase
 import com.allenljf.weatherforecast.core.testing.data.TestData
 import com.allenljf.weatherforecast.core.testing.network.FakeNetworkMonitor
 import com.allenljf.weatherforecast.core.testing.repository.FakeAppLanguageRepository
+import com.allenljf.weatherforecast.core.testing.repository.FakeAirQualityRepository
 import com.allenljf.weatherforecast.core.testing.repository.FakeCityRepository
 import com.allenljf.weatherforecast.core.testing.repository.FakeForecastRepository
+import com.allenljf.weatherforecast.core.testing.repository.FakeUserPreferencesRepository
 import com.allenljf.weatherforecast.core.testing.rule.MainDispatcherRule
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.StandardTestDispatcher
@@ -36,13 +44,19 @@ class ForecastViewModelTest {
     private val networkMonitor = FakeNetworkMonitor()
 
     private val languageRepository = FakeAppLanguageRepository()
+    private val preferencesRepository = FakeUserPreferencesRepository()
+    private val airQualityRepository = FakeAirQualityRepository()
 
     private fun createViewModel() = ForecastViewModel(
         observeSelectedCity = ObserveSelectedCityUseCase(cityRepository),
         getForecast = GetForecastUseCase(forecastRepository),
+        getCachedForecast = GetCachedForecastUseCase(forecastRepository),
+        getAirQuality = GetAirQualityUseCase(airQualityRepository),
         networkMonitor = networkMonitor,
         observeAppLanguage = ObserveAppLanguageUseCase(languageRepository),
         setAppLanguage = SetAppLanguageUseCase(languageRepository),
+        observeTemperatureUnit = ObserveTemperatureUnitUseCase(preferencesRepository),
+        setTemperatureUnit = SetTemperatureUnitUseCase(preferencesRepository),
     )
 
     private fun seedSelectedCity() {
@@ -273,6 +287,100 @@ class ForecastViewModelTest {
 
             awaitItemMatching { it.language == AppLanguage.TRADITIONAL_CHINESE }
             assertEquals(AppLanguage.TRADITIONAL_CHINESE, languageRepository.language.value)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    // --- Offline cache (A5) -------------------------------------------------
+
+    @Test
+    fun `cached forecast is shown immediately and marked stale before refresh`() = runTest {
+        seedSelectedCity()
+        forecastRepository.seedCache(TestData.taipei.id, TestData.forecast(temperature = 20.0))
+        // Network is down, so the refresh that follows will fail.
+        networkMonitor.onlineState.value = false
+        forecastRepository.setForecast(TestData.taipei.id, AppResult.Error(AppError.Network))
+
+        val viewModel = createViewModel()
+
+        viewModel.uiState.test {
+            runCurrent()
+            val state = awaitItemMatching { it.forecast is ForecastUiState.Success }
+            val success = state.forecast as ForecastUiState.Success
+            assertEquals(20.0, success.current.temperature, 0.0)
+            assertTrue("cached data must be marked stale", success.isStale)
+            assertEquals(ForecastBanner.Offline, state.banner)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun `successful refresh clears the stale flag`() = runTest {
+        seedSelectedCity()
+        forecastRepository.seedCache(TestData.taipei.id, TestData.forecast(temperature = 20.0))
+        forecastRepository.setForecast(TestData.taipei.id, AppResult.Success(TestData.forecast(temperature = 31.0)))
+
+        val viewModel = createViewModel()
+
+        viewModel.uiState.test {
+            val state = awaitItemMatching {
+                ((it.forecast as? ForecastUiState.Success)?.current?.temperature) == 31.0
+            }
+            assertFalse((state.forecast as ForecastUiState.Success).isStale)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    // --- Air quality (A4) ---------------------------------------------------
+
+    @Test
+    fun `air quality is loaded alongside the forecast`() = runTest {
+        seedSelectedCity()
+        forecastRepository.setForecast(TestData.taipei.id, AppResult.Success(TestData.forecast()))
+        airQualityRepository.result = AppResult.Success(AirQuality(europeanAqi = 42, pm2_5 = 12.0, pm10 = 20.0))
+
+        val viewModel = createViewModel()
+
+        viewModel.uiState.test {
+            val state = awaitItemMatching { it.airQuality != null }
+            assertEquals(42, state.airQuality?.europeanAqi)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun `failed air quality request does not break the forecast`() = runTest {
+        seedSelectedCity()
+        forecastRepository.setForecast(TestData.taipei.id, AppResult.Success(TestData.forecast()))
+        airQualityRepository.result = AppResult.Error(AppError.Server(500))
+
+        val viewModel = createViewModel()
+
+        viewModel.uiState.test {
+            val state = awaitItemMatching { it.forecast is ForecastUiState.Success }
+            assertNull(state.airQuality)
+            assertNull("a failed AQI request must not raise the banner", state.banner)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    // --- Temperature unit (A6) ----------------------------------------------
+
+    @Test
+    fun `temperature unit can be toggled and is persisted`() = runTest {
+        seedSelectedCity()
+        forecastRepository.setForecast(TestData.taipei.id, AppResult.Success(TestData.forecast()))
+
+        val viewModel = createViewModel()
+
+        viewModel.uiState.test {
+            awaitItemMatching { it.temperatureUnit == TemperatureUnit.CELSIUS }
+
+            viewModel.onToggleTemperatureUnit()
+            runCurrent()
+
+            awaitItemMatching { it.temperatureUnit == TemperatureUnit.FAHRENHEIT }
+            assertEquals(TemperatureUnit.FAHRENHEIT, preferencesRepository.temperatureUnit.value)
             cancelAndIgnoreRemainingEvents()
         }
     }
