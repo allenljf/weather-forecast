@@ -43,11 +43,14 @@ android {
     }
 }
 
-// Kaspresso 1.6.x publishes strictly-locked transitive versions that clash
-// with the newer Espresso/androidx stack; force the newer versions for tests.
+// Kaspresso 1.6.x publishes strictly-locked transitive versions that clash with
+// the newer Espresso/androidx stack; force the newer versions for tests.
+// drawerlayout must be >= 1.2.0 or appcompat's themes fail to link against
+// attr/drawerLayoutStyle when the test APK merges resources.
 configurations.matching { it.name.contains("AndroidTest") }.configureEach {
     resolutionStrategy {
         force("androidx.concurrent:concurrent-futures:1.2.0")
+        force("androidx.drawerlayout:drawerlayout:1.2.0")
     }
 }
 

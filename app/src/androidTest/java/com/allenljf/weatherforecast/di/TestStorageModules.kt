@@ -7,6 +7,7 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.room.Room
 import com.allenljf.weatherforecast.core.database.WeatherDatabase
 import com.allenljf.weatherforecast.core.database.dao.CityDao
+import com.allenljf.weatherforecast.core.database.dao.ForecastCacheDao
 import com.allenljf.weatherforecast.core.database.di.DatabaseModule
 import com.allenljf.weatherforecast.core.database.di.DefaultCitiesSeedCallback
 import com.allenljf.weatherforecast.core.datastore.di.DataStoreModule
@@ -39,6 +40,10 @@ object TestDatabaseModule {
 
     @Provides
     fun provideCityDao(database: WeatherDatabase): CityDao = database.cityDao()
+
+    @Provides
+    fun provideForecastCacheDao(database: WeatherDatabase): ForecastCacheDao =
+        database.forecastCacheDao()
 }
 
 /**
