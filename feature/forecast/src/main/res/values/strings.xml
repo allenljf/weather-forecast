@@ -12,4 +12,8 @@
     <string name="forecast_error_network">Couldn\'t load the forecast for %1$s. Check your connection and try again.</string>
     <string name="forecast_error_server">The weather service is unavailable right now. Try again in a moment.</string>
     <string name="forecast_error_unknown">Something went wrong while loading the forecast for %1$s. Try again.</string>
+    <string name="retry_action">Retry</string>
+    <string name="banner_offline">No internet connection. Reconnecting automatically…</string>
+    <string name="banner_server_error">The weather service is unavailable right now.</string>
+    <string name="banner_unknown_error">Couldn\'t update the forecast.</string>
 </resources>

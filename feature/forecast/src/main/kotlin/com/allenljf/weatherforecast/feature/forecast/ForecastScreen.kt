@@ -17,6 +17,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.LocationCity
 import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Surface
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -53,22 +56,25 @@ fun ForecastRoute(
     onCitiesClick: () -> Unit,
     viewModel: ForecastViewModel = hiltViewModel(),
 ) {
-    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val screenState by viewModel.uiState.collectAsStateWithLifecycle()
 
     ForecastScreen(
-        uiState = uiState,
+        screenState = screenState,
         onCitiesClick = onCitiesClick,
         onRetry = viewModel::onRetry,
+        onRefresh = viewModel::onRefresh,
     )
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ForecastScreen(
-    uiState: ForecastUiState,
+    screenState: ForecastScreenState,
     onCitiesClick: () -> Unit,
     onRetry: () -> Unit,
+    onRefresh: () -> Unit,
 ) {
+    val uiState = screenState.forecast
     Scaffold(
         topBar = {
             TopAppBar(
@@ -91,9 +97,72 @@ fun ForecastScreen(
             )
         },
     ) { padding ->
-        val contentModifier = Modifier
-            .fillMaxSize()
-            .padding(padding)
+        Column(modifier = Modifier.fillMaxSize().padding(padding)) {
+            screenState.banner?.let { banner ->
+                ForecastBannerBar(banner = banner, onRetry = onRetry)
+            }
+
+            PullToRefreshBox(
+                isRefreshing = screenState.isRefreshing,
+                onRefresh = onRefresh,
+                modifier = Modifier.fillMaxSize(),
+            ) {
+                ForecastBody(uiState = uiState, onRetry = onRetry)
+            }
+        }
+    }
+}
+
+/**
+ * Persistent top banner. Deliberately has no dismiss action: dismissing would
+ * remove the only way to trigger a manual retry.
+ */
+@Composable
+private fun ForecastBannerBar(
+    banner: ForecastBanner,
+    onRetry: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Surface(
+        modifier = modifier
+            .fillMaxWidth()
+            .testTag("error_banner"),
+        color = MaterialTheme.colorScheme.errorContainer,
+        contentColor = MaterialTheme.colorScheme.onErrorContainer,
+    ) {
+        Row(
+            modifier = Modifier.padding(start = 16.dp, top = 8.dp, end = 8.dp, bottom = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = when (banner) {
+                    ForecastBanner.Offline -> stringResource(R.string.banner_offline)
+                    is ForecastBanner.LoadFailed -> when (banner.error) {
+                        is AppError.Server -> stringResource(R.string.banner_server_error)
+                        else -> stringResource(R.string.banner_unknown_error)
+                    }
+                },
+                style = MaterialTheme.typography.bodyMedium,
+                modifier = Modifier
+                    .weight(1f)
+                    .testTag("error_banner_message"),
+            )
+            TextButton(
+                onClick = onRetry,
+                modifier = Modifier.testTag("banner_retry_button"),
+            ) {
+                Text(text = stringResource(R.string.retry_action))
+            }
+        }
+    }
+}
+
+@Composable
+private fun ForecastBody(
+    uiState: ForecastUiState,
+    onRetry: () -> Unit,
+) {
+    val contentModifier = Modifier.fillMaxSize()
 
         when (uiState) {
             ForecastUiState.Loading -> LoadingState(modifier = contentModifier)
@@ -118,7 +187,6 @@ fun ForecastScreen(
                 modifier = contentModifier,
             )
         }
-    }
 }
 
 @Composable
