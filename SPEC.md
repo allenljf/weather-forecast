@@ -144,6 +144,11 @@ hides the card silently — it never shows an error, never raises the banner, an
 forecast. Locations without coverage return an empty payload, which is treated as "unavailable"
 rather than as an AQI of zero.
 
+**City scoping**: the reading is cleared when the selected city changes, and the request is
+cancelled with the rest of that city's load. A previous city's reading can therefore never be
+shown next to another city's forecast, and a slow response for a city the user has already left
+cannot overwrite the current one.
+
 ### 2.1.8 Offline cache (F15)
 
 Every successful fetch is stored per city. On opening a city the app **shows the cached forecast
@@ -404,6 +409,8 @@ Rules an implementer must preserve when changing code:
 16. Temperature conversion happens at display time; stored values are always Celsius.
 17. Precipitation probability is hidden at 0% rather than rendered as "0%".
 18. Schema changes ship with an explicit migration — never destructive fallback.
+19. Per-city data is cleared on city change and its request cancelled, so a late response
+    for a previous city can never surface under the current one.
 
 ---
 

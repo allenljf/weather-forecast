@@ -135,6 +135,26 @@ of them proactively flagged a cross-module consequence I had not asked about —
 API would break the E2E test module's dependency injection — which I then fixed before it could
 fail.
 
+That review loop then proved itself again on this round's own code. After pushing the five new
+features I had the PR reviewed by Claude in CI, and it found a defect I had missed **in code I
+had just written and manually tested**: the air-quality fetch was launched in a detached
+`viewModelScope.launch` from inside the flow that `flatMapLatest` cancels, so it escaped that
+cancellation. Two consequences — a previous city's reading rendered next to the new city's
+forecast on every switch, and a slow response could overwrite a newer one. The irony is that I
+had designed exactly this protection for the search pipeline and then failed to apply it to a
+feature added later. It also correctly pointed out that my two AQI tests only ever exercised one
+city, which is why nothing caught it.
+
+I fixed it the same way I fix everything: wrote the failing test first (switch cities while a
+slow AQI request is in flight), confirmed it reproduced the bug, then moved the fetch inside the
+cancellable flow and cleared the value on city change. The reviewer also caught two stray test
+doubles I had accidentally written into `core:domain`'s production source set, and a duplicate
+connectivity subscription. All three are fixed.
+
+The lesson I take from this is not "AI review is good" but something more specific: **a reviewer
+with no memory of writing the code finds things the author cannot**, and the value shows up
+precisely on the code you feel most confident about.
+
 **Four gates before I accept anything:**
 1. *Machine* — build plus the full test suite green; TDD guarantees the tests have teeth.
 2. *Independent review* — a fresh agent with no memory of the implementation audits the diff.

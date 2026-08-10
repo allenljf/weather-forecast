@@ -24,6 +24,7 @@ import com.allenljf.weatherforecast.core.testing.repository.FakeUserPreferencesR
 import com.allenljf.weatherforecast.core.testing.rule.MainDispatcherRule
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
@@ -360,6 +361,63 @@ class ForecastViewModelTest {
             val state = awaitItemMatching { it.forecast is ForecastUiState.Success }
             assertNull(state.airQuality)
             assertNull("a failed AQI request must not raise the banner", state.banner)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun `switching city clears the previous city's air quality`() = runTest {
+        seedSelectedCity()
+        forecastRepository.setForecast(TestData.taipei.id, AppResult.Success(TestData.forecast()))
+        forecastRepository.setForecast(TestData.tokyo.id, AppResult.Success(TestData.forecast()))
+        airQualityRepository.resultsByCityId[TestData.taipei.id] =
+            AppResult.Success(AirQuality(europeanAqi = 20, pm2_5 = 5.0, pm10 = 8.0))
+        // Tokyo's air quality never resolves during this test.
+        airQualityRepository.resultsByCityId[TestData.tokyo.id] =
+            AppResult.Error(AppError.Network)
+
+        val viewModel = createViewModel()
+
+        viewModel.uiState.test {
+            awaitItemMatching { it.airQuality?.europeanAqi == 20 }
+
+            cityRepository.selectedCityId.value = TestData.tokyo.id
+            runCurrent()
+
+            // Taipei's reading must not linger next to Tokyo's forecast.
+            val state = awaitItemMatching {
+                (it.forecast as? ForecastUiState.Success)?.city == TestData.tokyo
+            }
+            assertNull("stale air quality leaked across cities", state.airQuality)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun `a slow air quality request for a previous city cannot overwrite the current one`() = runTest {
+        seedSelectedCity()
+        forecastRepository.setForecast(TestData.taipei.id, AppResult.Success(TestData.forecast()))
+        forecastRepository.setForecast(TestData.tokyo.id, AppResult.Success(TestData.forecast()))
+        airQualityRepository.delayMillis = 1_000
+        airQualityRepository.resultsByCityId[TestData.taipei.id] =
+            AppResult.Success(AirQuality(europeanAqi = 20, pm2_5 = 5.0, pm10 = 8.0))
+        airQualityRepository.resultsByCityId[TestData.tokyo.id] =
+            AppResult.Success(AirQuality(europeanAqi = 75, pm2_5 = 40.0, pm10 = 60.0))
+
+        val viewModel = createViewModel()
+
+        viewModel.uiState.test {
+            // Switch away while Taipei's AQI request is still in flight.
+            advanceTimeBy(200)
+            cityRepository.selectedCityId.value = TestData.tokyo.id
+            advanceTimeBy(5_000)
+
+            val state = awaitItemMatching { it.airQuality != null }
+            assertEquals(
+                "the earlier city's slow response overwrote the current one",
+                75,
+                state.airQuality?.europeanAqi,
+            )
             cancelAndIgnoreRemainingEvents()
         }
     }

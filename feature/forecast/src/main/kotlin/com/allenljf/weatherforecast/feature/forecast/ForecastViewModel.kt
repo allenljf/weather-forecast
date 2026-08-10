@@ -106,8 +106,10 @@ class ForecastViewModel @Inject constructor(
      */
     private fun autoRecoverWhenBackOnline() {
         viewModelScope.launch {
-            networkMonitor.isOnline
-                .distinctUntilChanged()
+            // Reuses the shared hot flow instead of subscribing to the monitor
+            // again, which would register a second NetworkCallback.
+            // StateFlow already conflates equal values, so no distinctUntilChanged.
+            isOnline
                 .filter { online -> online }
                 .collect {
                     if (loadState.value is LoadState.Failed) {
@@ -127,6 +129,10 @@ class ForecastViewModel @Inject constructor(
         var previous = (loadState.value as? LoadState.Loaded)?.takeIf { it.city == city }
 
         if (previous == null) {
+            // Different city (or first load): drop the previous reading so it can't
+            // be shown next to another city's forecast.
+            airQuality.value = null
+
             val cached = getCachedForecast(city)
             if (cached == null) {
                 emit(LoadState.Loading)
@@ -145,14 +151,10 @@ class ForecastViewModel @Inject constructor(
         )
         isRefreshing.value = false
 
-        loadAirQuality(city)
-    }
-
-    /** Air quality is supplementary: a failure leaves the forecast untouched. */
-    private fun loadAirQuality(city: City) {
-        viewModelScope.launch {
-            airQuality.value = (getAirQuality(city) as? AppResult.Success)?.data
-        }
+        // Awaited here rather than launched separately, so flatMapLatest cancels
+        // an in-flight request when the city changes and a slow response for the
+        // previous city can never overwrite the current one.
+        airQuality.value = (getAirQuality(city) as? AppResult.Success)?.data
     }
 
     fun onLanguageSelected(language: AppLanguage) {
