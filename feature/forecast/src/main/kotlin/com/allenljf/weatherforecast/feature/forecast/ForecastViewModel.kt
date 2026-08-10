@@ -5,10 +5,13 @@ import androidx.lifecycle.viewModelScope
 import com.allenljf.weatherforecast.core.common.network.NetworkMonitor
 import com.allenljf.weatherforecast.core.common.result.AppError
 import com.allenljf.weatherforecast.core.common.result.AppResult
+import com.allenljf.weatherforecast.core.domain.model.AppLanguage
 import com.allenljf.weatherforecast.core.domain.model.City
 import com.allenljf.weatherforecast.core.domain.model.WeatherForecast
 import com.allenljf.weatherforecast.core.domain.usecase.GetForecastUseCase
+import com.allenljf.weatherforecast.core.domain.usecase.ObserveAppLanguageUseCase
 import com.allenljf.weatherforecast.core.domain.usecase.ObserveSelectedCityUseCase
+import com.allenljf.weatherforecast.core.domain.usecase.SetAppLanguageUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -30,6 +33,8 @@ class ForecastViewModel @Inject constructor(
     observeSelectedCity: ObserveSelectedCityUseCase,
     private val getForecast: GetForecastUseCase,
     private val networkMonitor: NetworkMonitor,
+    observeAppLanguage: ObserveAppLanguageUseCase,
+    private val setAppLanguage: SetAppLanguageUseCase,
 ) : ViewModel() {
 
     /** Bumped by retry, pull-to-refresh, and by regaining connectivity. */
@@ -42,15 +47,20 @@ class ForecastViewModel @Inject constructor(
     private val loadState = MutableStateFlow<LoadState>(LoadState.Loading)
 
     @OptIn(ExperimentalCoroutinesApi::class)
+    private val language = observeAppLanguage()
+        .stateIn(viewModelScope, SharingStarted.Eagerly, AppLanguage.DEFAULT)
+
     val uiState: StateFlow<ForecastScreenState> = combine(
         loadState,
         isRefreshing,
         isOnline,
-    ) { load, refreshing, online ->
+        language,
+    ) { load, refreshing, online, language ->
         ForecastScreenState(
             forecast = load.toUiState(),
             isRefreshing = refreshing,
             banner = bannerFor(load, online),
+            language = language,
         )
     }.stateIn(
         scope = viewModelScope,
@@ -110,6 +120,10 @@ class ForecastViewModel @Inject constructor(
             },
         )
         isRefreshing.value = false
+    }
+
+    fun onLanguageSelected(language: AppLanguage) {
+        viewModelScope.launch { setAppLanguage(language) }
     }
 
     fun onRetry() {

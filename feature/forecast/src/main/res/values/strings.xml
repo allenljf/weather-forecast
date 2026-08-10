@@ -2,6 +2,8 @@
 <resources>
     <string name="forecast_default_title">Weather Forecast</string>
     <string name="manage_cities">Manage cities</string>
+    <string name="search_cities">Search cities</string>
+    <string name="change_language">Change language</string>
     <string name="next_hours">Next hours</string>
     <string name="seven_day_forecast">7-day forecast</string>
     <string name="feels_like">Feels like %1$d°</string>

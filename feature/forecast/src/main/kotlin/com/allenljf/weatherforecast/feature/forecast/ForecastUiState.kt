@@ -1,6 +1,7 @@
 package com.allenljf.weatherforecast.feature.forecast
 
 import com.allenljf.weatherforecast.core.common.result.AppError
+import com.allenljf.weatherforecast.core.domain.model.AppLanguage
 import com.allenljf.weatherforecast.core.domain.model.City
 import com.allenljf.weatherforecast.core.domain.model.CurrentWeather
 import com.allenljf.weatherforecast.core.domain.model.DailyForecast
@@ -33,6 +34,7 @@ data class ForecastScreenState(
     val forecast: ForecastUiState = ForecastUiState.Loading,
     val isRefreshing: Boolean = false,
     val banner: ForecastBanner? = null,
+    val language: AppLanguage = AppLanguage.DEFAULT,
 )
 
 /**

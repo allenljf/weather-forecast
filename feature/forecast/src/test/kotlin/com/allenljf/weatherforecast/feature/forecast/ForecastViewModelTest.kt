@@ -3,10 +3,14 @@ package com.allenljf.weatherforecast.feature.forecast
 import app.cash.turbine.test
 import com.allenljf.weatherforecast.core.common.result.AppError
 import com.allenljf.weatherforecast.core.common.result.AppResult
+import com.allenljf.weatherforecast.core.domain.model.AppLanguage
 import com.allenljf.weatherforecast.core.domain.usecase.GetForecastUseCase
+import com.allenljf.weatherforecast.core.domain.usecase.ObserveAppLanguageUseCase
 import com.allenljf.weatherforecast.core.domain.usecase.ObserveSelectedCityUseCase
+import com.allenljf.weatherforecast.core.domain.usecase.SetAppLanguageUseCase
 import com.allenljf.weatherforecast.core.testing.data.TestData
 import com.allenljf.weatherforecast.core.testing.network.FakeNetworkMonitor
+import com.allenljf.weatherforecast.core.testing.repository.FakeAppLanguageRepository
 import com.allenljf.weatherforecast.core.testing.repository.FakeCityRepository
 import com.allenljf.weatherforecast.core.testing.repository.FakeForecastRepository
 import com.allenljf.weatherforecast.core.testing.rule.MainDispatcherRule
@@ -31,10 +35,14 @@ class ForecastViewModelTest {
     private val forecastRepository = FakeForecastRepository()
     private val networkMonitor = FakeNetworkMonitor()
 
+    private val languageRepository = FakeAppLanguageRepository()
+
     private fun createViewModel() = ForecastViewModel(
         observeSelectedCity = ObserveSelectedCityUseCase(cityRepository),
         getForecast = GetForecastUseCase(forecastRepository),
         networkMonitor = networkMonitor,
+        observeAppLanguage = ObserveAppLanguageUseCase(languageRepository),
+        setAppLanguage = SetAppLanguageUseCase(languageRepository),
     )
 
     private fun seedSelectedCity() {
@@ -247,6 +255,25 @@ class ForecastViewModelTest {
             val forecast = state.forecast as ForecastUiState.Success
             assertEquals(25.0, forecast.current.temperature, 0.0)
             assertFalse(state.isRefreshing)
+        }
+    }
+
+    @Test
+    fun `selecting a language persists it and surfaces it in state`() = runTest {
+        seedSelectedCity()
+        forecastRepository.setForecast(TestData.taipei.id, AppResult.Success(TestData.forecast()))
+
+        val viewModel = createViewModel()
+
+        viewModel.uiState.test {
+            awaitItemMatching { it.language == AppLanguage.ENGLISH }
+
+            viewModel.onLanguageSelected(AppLanguage.TRADITIONAL_CHINESE)
+            runCurrent()
+
+            awaitItemMatching { it.language == AppLanguage.TRADITIONAL_CHINESE }
+            assertEquals(AppLanguage.TRADITIONAL_CHINESE, languageRepository.language.value)
+            cancelAndIgnoreRemainingEvents()
         }
     }
 

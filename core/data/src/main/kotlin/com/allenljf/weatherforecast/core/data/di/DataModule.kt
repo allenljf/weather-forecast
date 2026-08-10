@@ -21,4 +21,10 @@ internal interface DataModule {
     @Binds
     @Singleton
     fun bindCityRepository(impl: CityRepositoryImpl): CityRepository
+
+    @Binds
+    @Singleton
+    fun bindAppLanguageRepository(
+        impl: com.allenljf.weatherforecast.core.data.repository.AppLanguageRepositoryImpl,
+    ): com.allenljf.weatherforecast.core.domain.repository.AppLanguageRepository
 }

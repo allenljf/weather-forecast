@@ -1,6 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="retry">Retry</string>
+    <!-- Language names stay in their own language on purpose, so users can find
+         their language even when the UI is currently in one they can't read. -->
+    <string name="language_english" translatable="false">English</string>
+    <string name="language_traditional_chinese" translatable="false">繁體中文</string>
 
     <string name="condition_clear">Clear sky</string>
     <string name="condition_mainly_clear">Mainly clear</string>
