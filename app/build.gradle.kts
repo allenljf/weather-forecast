@@ -20,6 +20,9 @@ android {
         versionName = "1.0"
 
         testInstrumentationRunner = "com.allenljf.weatherforecast.core.testing.HiltTestRunner"
+        // Lets instrumented tests write screenshots/files to test storage;
+        // AGP pulls them back to build/outputs after the run.
+        testInstrumentationRunnerArguments["useTestStorageService"] = "true"
     }
 
     buildTypes {
@@ -118,6 +121,8 @@ dependencies {
     androidTestImplementation(libs.androidx.espresso.core)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.test.rules)
+    androidTestImplementation(libs.androidx.test.core.ktx)
+    androidTestUtil(libs.androidx.test.services)
     androidTestImplementation(libs.hilt.android.testing)
     androidTestImplementation(libs.kaspresso)
     androidTestImplementation(libs.okhttp.mockwebserver)

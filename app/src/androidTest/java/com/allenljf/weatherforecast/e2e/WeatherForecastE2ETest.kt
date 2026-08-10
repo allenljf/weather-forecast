@@ -33,6 +33,9 @@ class WeatherForecastE2ETest : TestCase() {
     @get:Rule(order = 2)
     val composeRule = createAndroidComposeRule<MainActivity>()
 
+    @get:Rule(order = 3)
+    val screenshotRule = ScreenshotOnTestFinishedRule()
+
     @Test
     fun displaysTodayAndWeeklyForecastForDefaultCity() = run {
         step("Today's forecast for the seeded default city is shown") {

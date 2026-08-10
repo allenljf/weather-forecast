@@ -12,19 +12,75 @@ An Android weather forecast app built for the ON Android Engineer home assignmen
 - **Weekly forecast** — 7-day outlook with condition and min/max temperatures
 - **City list** — 5 preloaded cities, search any city worldwide (Open-Meteo geocoding), add/remove/select; the selected city persists across launches
 
-## Tech Stack
+## Tech Stack & Why
 
-| Area | Choice |
-|---|---|
-| Language | Kotlin |
-| UI | Jetpack Compose (Material 3) |
-| Architecture | MVVM + Clean Architecture, unidirectional data flow |
-| DI | Hilt |
-| Async / Reactive | Coroutines + Flow |
-| Network | Retrofit + OkHttp + kotlinx.serialization |
-| Persistence | Room (saved cities) + DataStore (selected city) |
-| Testing | JUnit, MockK, Turbine, MockWebServer, Robolectric, Compose UI Test, Kaspresso, Espresso |
-| Build | Gradle convention plugins (`build-logic`), version catalog |
+Each choice was made against at least one concrete alternative:
+
+| Area | Chosen | Alternatives considered | Why this one |
+|---|---|---|---|
+| Network | Retrofit + OkHttp | Ktor Client | Declarative API interfaces, mature interceptor ecosystem, and first-class MockWebServer testing. Ktor's main edge is Kotlin Multiplatform, which this Android-only project doesn't need. |
+| JSON | kotlinx.serialization | Moshi, Gson | Compile-time codegen — no reflection, and Kotlin nullability/default values are actually enforced. Gson bypasses Kotlin null-safety via reflection (a real production bug source); Moshi is solid but adds a second codegen pipeline for no gain here. |
+| DI | Hilt | Koin, manual DI | Graph validated **at compile time** — a missing binding fails the build, not the user session. Standard ViewModel/Navigation integration and `@TestInstallIn` made the E2E test doubles trivial. Koin resolves at runtime (errors surface late); manual DI doesn't scale across 11 modules. |
+| Local DB | Room | SQLDelight, raw SQLite | Compile-time verified SQL, `Flow` queries, in-memory builder for tests, and a `Callback` hook that made seeding default cities clean. SQLDelight is excellent but its main advantage (KMP) is unused here. |
+| Preferences | DataStore | SharedPreferences | Async `Flow`-based reads, transactional writes, no main-thread I/O. SharedPreferences has sync reads that can ANR and racy `apply()` semantics. |
+| Concurrency | Coroutines + Flow | RxJava | Structured concurrency (cancellation propagates with lifecycles — see the search-cancellation handling in `CitiesViewModel`), and first-party support in Room/Retrofit/Compose. RxJava solves the same problems with a much larger API surface. |
+| Presentation | MVVM + UDF (plain `StateFlow`) | MVI frameworks (Orbit, Circuit) | The unidirectional pattern without framework lock-in: UI observes one `StateFlow<UiState>`, events go back as function calls. At this scope an MVI framework adds concepts without adding safety. |
+| Build | Convention plugins (`build-logic`) + version catalog | `buildSrc`, copy-pasted module scripts | One source of truth for SDK levels/Java target/test deps across 11 modules. Unlike `buildSrc`, an included build doesn't invalidate the entire build cache on every change. |
+| Unit test doubles | MockK + hand-written fakes | Mockito | MockK is Kotlin-native: final classes work out of the box and `coEvery`/`coVerify` handle suspend functions. Stateful fakes (in `core:testing`) are used where interaction mocks would just mirror the implementation. |
+| API | Open-Meteo | OpenWeatherMap | No API key → the "100% executable" requirement holds for any reviewer from a clean clone, with no secret management. Its geocoding API also shares GeoNames ids with the forecast API, enabling natural upserts. |
+
+## Module Dependency Graph
+
+```mermaid
+graph TD
+    subgraph UI
+        app["app<br/>(NavHost, Hilt app)"]
+        forecast["feature:forecast"]
+        cities["feature:cities"]
+    end
+
+    subgraph Data
+        data["core:data<br/>(repository impls)"]
+        network["core:network<br/>(Retrofit / Open-Meteo)"]
+        database["core:database<br/>(Room)"]
+        datastore["core:datastore<br/>(DataStore)"]
+    end
+
+    subgraph Domain["Pure Kotlin (no Android)"]
+        domain["core:domain<br/>(entities, use cases)"]
+        common["core:common<br/>(AppResult)"]
+    end
+
+    designsystem["core:designsystem<br/>(theme, components)"]
+    testing["core:testing<br/>(fakes, rules)"]
+
+    app --> forecast
+    app --> cities
+    app --> data
+    app --> designsystem
+    forecast --> domain
+    forecast --> designsystem
+    cities --> domain
+    cities --> designsystem
+    designsystem --> domain
+    data --> domain
+    data --> common
+    data --> network
+    data --> database
+    data --> datastore
+    network --> common
+    datastore --> common
+    domain --> common
+    testing -.->|test-only| domain
+    forecast -.->|testImplementation| testing
+    cities -.->|testImplementation| testing
+    app -.->|androidTest| testing
+```
+
+Key properties: all arrows point **inward** toward the pure-Kotlin domain; features never depend on
+each other or on data sources directly (repository *interfaces* live in `core:domain`, their
+*implementations* in `core:data`, bound together by Hilt in `app`); `core:designsystem` and
+`core:testing` are horizontal support modules.
 
 ## Module Structure
 
@@ -91,6 +147,21 @@ Connected (E2E) tests print the same per-test summary right after the device run
 (the `printConnectedTestResults` task parses the XML reports). Full HTML reports are written
 to `app/build/reports/androidTests/connected/` and `<module>/build/reports/tests/`.
 
+### E2E screenshots
+
+Every E2E test captures a device screenshot when it finishes (pass **and** fail, via
+`ScreenshotOnTestFinishedRule` + androidx test storage). After
+`./gradlew connectedDebugAndroidTest`, AGP pulls them to:
+
+```
+app/build/outputs/connected_android_test_additional_output/debugAndroidTest/connected/<device>/
+  ├── displaysTodayAndWeeklyForecastForDefaultCity_PASSED.png
+  ├── addsCityViaSearchAndShowsItsForecast_PASSED.png
+  └── switchesSelectedCityFromSavedList_PASSED.png
+```
+
+They stay on disk until the next test run overwrites them (or `./gradlew clean`).
+
 > **Note:** when `connectedDebugAndroidTest` finishes, AGP **uninstalls the app and test APKs
 > from the device by design** (test hygiene). If the launcher icon disappears after running
 > E2E tests, just reinstall with `./gradlew installDebug`.
@@ -103,8 +174,6 @@ to `app/build/reports/androidTests/connected/` and `<module>/build/reports/tests
 
 ## Design Decisions
 
-- **Open-Meteo over OpenWeatherMap**: keyless API keeps the "100% executable" requirement true
-  for any reviewer without secrets management.
 - **GeoNames ids as primary keys**: seeded cities and geocoding results share the same id space,
   so re-adding an existing city is a natural upsert.
 - **Selection fallback in domain**: if the user never picked a city, the first saved city is
