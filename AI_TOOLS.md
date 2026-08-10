@@ -30,6 +30,45 @@ architecture decision, reviewing all generated code, and verifying behavior on d
    forecast, weekly list, search "Kaohsiung" → add → switch) and covered by instrumented E2E
    tests against a mocked Open-Meteo server.
 
+## From zero to done: how this session actually ran
+
+A concrete walkthrough of the process, including the decisions I made and where I steered:
+
+1. **Starting point** — an empty Android Studio template (one `init project` commit) and the
+   assignment PDF. Before writing any code I had the AI research two candidate AI-development
+   workflows (obra's *Superpowers* and Matt Pocock's skills collection), compared their
+   trade-offs, and **decided on Superpowers** as the process backbone: its enforced
+   brainstorm → plan → TDD → review pipeline fit a from-scratch, single-developer project
+   better than a loose toolbox.
+2. **Planning under my control** — the work started in plan mode: the assignment was analyzed
+   and an 11-phase plan was drafted. I made four explicit product/engineering decisions before
+   approving it: use **Open-Meteo** (keyless, so the "100% executable" requirement holds for
+   any reviewer), scope the city list as **seeded defaults + geocoding search-to-add**, adopt
+   the **full test pyramid** (unit + integration + Compose UI + E2E), and target a
+   **multi-module Clean Architecture** with convention plugins. Nothing was implemented until
+   the plan was approved.
+3. **Phased execution with TDD** — each phase followed red-green-refactor with the tests
+   written and observed failing first. Independent modules (`core:network`,
+   `core:database`/`core:datastore`, `core:data`) were delegated to **parallel subagents**
+   working against specs I reviewed, while the main session built the domain layer, both
+   feature modules, and the app shell. Every phase ended with a green `./gradlew build` and a
+   readable, self-contained commit — the git history is the audit trail of this process.
+4. **Verification and review** — after assembly the app was manually exercised on an emulator
+   (screenshots at each step: default-city forecast, weekly list, searching and adding
+   Kaohsiung). A final review agent then audited the whole diff; it found two genuine
+   concurrency issues (a search race and a write-vs-navigation lifecycle race). I had both
+   fixed with regression tests, plus the minor findings (error-message flattening, hardcoded
+   strings, dead code, debug-only logging).
+5. **Iterating on real usage** — after the initial delivery I kept steering with follow-up
+   requests based on actually using the project: per-test console output for `test`/`build`,
+   fixing the root `connectedDebugAndroidTest` failure (empty instrumentation runs on
+   library modules), diagnosing why the app "disappeared" after E2E runs (AGP uninstalls test
+   APKs by design), and renaming the app / replacing the launcher icon with a weather-themed
+   adaptive icon.
+
+The division of labor throughout: **the AI wrote code and ran verification; I set direction,
+made every architectural and scope decision, gated each phase, and reviewed the output.**
+
 ## What AI concretely helped with
 
 - Multi-module + convention-plugin Gradle setup (including AGP 9 built-in Kotlin / KSP

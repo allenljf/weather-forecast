@@ -72,10 +72,28 @@ No configuration or API key needed.
 ## Testing
 
 ```bash
-./gradlew test                        # ~80 unit tests (JVM + Robolectric)
+./gradlew test                        # ~85 unit tests (JVM + Robolectric)
 ./gradlew connectedDebugAndroidTest   # 3 E2E scenarios (needs emulator/device)
 ./gradlew build                       # full build incl. lint + unit tests
 ```
+
+### Seeing per-test results in the console
+
+Every unit test prints its name and outcome (`ClassName > test name PASSED/FAILED`) while
+running. Gradle skips test tasks whose inputs didn't change (`UP-TO-DATE`) — nothing executes,
+so nothing is printed. To force a fresh run and see the full list again:
+
+```bash
+./gradlew test --rerun-tasks
+```
+
+Connected (E2E) tests print the same per-test summary right after the device run finishes
+(the `printConnectedTestResults` task parses the XML reports). Full HTML reports are written
+to `app/build/reports/androidTests/connected/` and `<module>/build/reports/tests/`.
+
+> **Note:** when `connectedDebugAndroidTest` finishes, AGP **uninstalls the app and test APKs
+> from the device by design** (test hygiene). If the launcher icon disappears after running
+> E2E tests, just reinstall with `./gradlew installDebug`.
 
 - **Unit**: domain use cases, WMO code mapping, DTO/entity mappers, repository error mapping,
   DAO (Robolectric in-memory), DataStore, ViewModels (Turbine + fakes), API deserialization

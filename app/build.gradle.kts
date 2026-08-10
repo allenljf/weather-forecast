@@ -56,6 +56,40 @@ tasks.withType<Test>().configureEach {
     }
 }
 
+// AGP's connected test tasks don't support Gradle's testLogging, so parse the
+// XML reports and echo per-test results to the console after the run.
+val printConnectedTestResults = tasks.register("printConnectedTestResults") {
+    description = "Prints per-test results from connected androidTest XML reports."
+    val resultsDir = layout.buildDirectory.dir("outputs/androidTest-results/connected")
+    doLast {
+        val dir = resultsDir.get().asFile
+        if (!dir.exists()) return@doLast
+        val factory = javax.xml.parsers.DocumentBuilderFactory.newInstance()
+        dir.walkTopDown()
+            .filter { it.isFile && it.name.startsWith("TEST-") && it.extension == "xml" }
+            .forEach { file ->
+                val doc = factory.newDocumentBuilder().parse(file)
+                val cases = doc.getElementsByTagName("testcase")
+                for (i in 0 until cases.length) {
+                    val case = cases.item(i) as org.w3c.dom.Element
+                    val className = case.getAttribute("classname").substringAfterLast('.')
+                    val status = when {
+                        case.getElementsByTagName("failure").length > 0 ||
+                            case.getElementsByTagName("error").length > 0 -> "FAILED"
+
+                        case.getElementsByTagName("skipped").length > 0 -> "SKIPPED"
+                        else -> "PASSED"
+                    }
+                    println("$className > ${case.getAttribute("name")} $status")
+                }
+            }
+    }
+}
+
+tasks.matching { it.name.startsWith("connected") && it.name.endsWith("AndroidTest") }.configureEach {
+    finalizedBy(printConnectedTestResults)
+}
+
 dependencies {
     implementation(project(":core:data"))
     implementation(project(":core:designsystem"))
