@@ -1,4 +1,5 @@
 import org.gradle.api.artifacts.VersionCatalogsExtension
+import org.gradle.api.tasks.testing.logging.TestExceptionFormat
 
 plugins {
     id("com.android.library")
@@ -30,8 +31,21 @@ android {
     }
 }
 
+// Library modules without androidTest sources would still run an empty
+// instrumentation and fail with "Could not load test results".
+androidComponents {
+    beforeVariants(selector().all()) { variant ->
+        variant.androidTest.enable =
+            variant.androidTest.enable && projectDir.resolve("src/androidTest").exists()
+    }
+}
+
 tasks.withType<Test>().configureEach {
     failOnNoDiscoveredTests = false
+    testLogging {
+        events("passed", "skipped", "failed")
+        exceptionFormat = TestExceptionFormat.SHORT
+    }
 }
 
 dependencies {

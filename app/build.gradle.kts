@@ -48,6 +48,14 @@ configurations.matching { it.name.contains("AndroidTest") }.configureEach {
     }
 }
 
+tasks.withType<Test>().configureEach {
+    failOnNoDiscoveredTests = false
+    testLogging {
+        events("passed", "skipped", "failed")
+        exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.SHORT
+    }
+}
+
 dependencies {
     implementation(project(":core:data"))
     implementation(project(":core:designsystem"))
